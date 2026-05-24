@@ -21,20 +21,30 @@ services:
       - ./backend:/var/www/html
     depends_on:
       - mysql
+      - redis
     networks:
       - jachaix
 
-  mysql:
+    mysql:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: R00t@Jcx#2026!
-      MYSQL_DATABASE: jachaix
-      MYSQL_USER: jachaix
-      MYSQL_PASSWORD: Jcx@S3cur3#Db!
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+    networks:
+      - jachaix
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
     networks:
       - jachaix
 
@@ -50,6 +60,7 @@ services:
 volumes:
   mysql_data:
   qdrant_data:
+  redis_data:
 
 networks:
   jachaix:

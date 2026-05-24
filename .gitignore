@@ -18,3 +18,14 @@ Thumbs.db
 # IDE
 .idea/
 .vscode/
+ 
+ 
+# Python
+services/*/.env
+services/*/__pycache__/
+services/*/*.pyc
+services/*/venv/
+services/*/.venv/
+**/__pycache__/
+**/*.pyc
+.env
