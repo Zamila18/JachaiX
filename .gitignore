@@ -1,0 +1,20 @@
+# Laravel
+backend/vendor/
+backend/.env
+backend/storage/logs/*
+backend/storage/framework/cache/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+backend/bootstrap/cache/*
+
+# Docker volumes
+mysql_data/
+qdrant_data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
