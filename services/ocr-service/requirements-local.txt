@@ -1,0 +1,24 @@
+# Minimal requirements for LOCAL testing (skips visualdl, imgaug, dev tools)
+# paddleocr is installed --no-deps below via install-local.ps1
+
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9
+PyMuPDF==1.24.3
+Pillow==10.3.0
+langdetect==1.0.9
+pydantic==2.7.1
+numpy==1.26.4
+
+# PaddlePaddle core (inference engine)
+paddlepaddle==2.6.2
+
+# paddleocr runtime deps (manually listed, skipping visualdl/imgaug/lmdb/cython etc.)
+opencv-python<=4.6.0.66
+shapely
+pyclipper
+lxml
+pyyaml
+tqdm
+rapidfuzz
+scipy

@@ -13,14 +13,25 @@ class ClaimController extends Controller
     public function submit(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'input_type' => 'required|in:text,image,audio,video,url',
-            'raw_input'  => 'required|string|max:10000',
+            'input_type' => 'required|in:text,image,pdf',
+            'raw_input'  => 'required_if:input_type,text|nullable|string|max:10000',
+            'file'       => 'required_if:input_type,image,pdf|nullable|file|max:10240',
             'language'   => 'sometimes|string|max:10',
         ]);
 
+        $filePath = null;
+        $rawInput = $validated['raw_input'] ?? null;
+
+        // Handle file upload for image or pdf
+        if ($request->hasFile('file')) {
+            $filePath = $request->file('file')->store('uploads', 'local');
+            $rawInput = $filePath;
+        }
+
         $claim = Claim::create([
             'input_type' => $validated['input_type'],
-            'raw_input'  => $validated['raw_input'],
+            'raw_input'  => $rawInput,
+            'file_path'  => $filePath,
             'language'   => $validated['language'] ?? 'bn',
             'status'     => 'pending',
             'ip_address' => $request->ip(),
@@ -39,7 +50,7 @@ class ClaimController extends Controller
             'success'  => true,
             'claim_id' => $claim->id,
             'status'   => $claim->status,
-            'message'  => 'Claim submitted successfully. Analysis in progress.',
+            'message'  => 'Claim submitted. Analysis in progress.',
         ], 201);
     }
 
@@ -54,8 +65,6 @@ class ClaimController extends Controller
                 'status'           => $claim->status,
                 'verdict'          => $claim->verdict,
                 'confidence_score' => $claim->confidence_score,
-                'explanation'      => $claim->explanation,
-                'sources'          => $claim->sources,
             ],
         ]);
     }
@@ -69,12 +78,13 @@ class ClaimController extends Controller
             'claim'   => [
                 'id'               => $claim->id,
                 'status'           => $claim->status,
+                'input_type'       => $claim->input_type,
+                'extracted_text'   => $claim->extracted_text,
+                'claim_text'       => $claim->claim_text,
                 'verdict'          => $claim->verdict,
                 'confidence_score' => $claim->confidence_score,
                 'explanation'      => $claim->explanation,
                 'sources'          => $claim->sources,
-                'input_type'       => $claim->input_type,
-                'raw_input'        => $claim->raw_input,
                 'language'         => $claim->language,
                 'created_at'       => $claim->created_at,
             ],

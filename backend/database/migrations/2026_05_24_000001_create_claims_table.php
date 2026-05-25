@@ -9,12 +9,14 @@ return new class extends Migration {
     {
         Schema::create('claims', function (Blueprint $table) {
             $table->id();
-            $table->string('input_type'); // text, image, audio, video, url
-            $table->longText('raw_input');
-            $table->text('extracted_text')->nullable();
+            $table->string('input_type');              // text, image, pdf
+            $table->longText('raw_input')->nullable(); // text input or file path
+            $table->string('file_path')->nullable();   // stored file path for image/pdf
+            $table->text('extracted_text')->nullable(); // OCR output
+            $table->text('claim_text')->nullable();    // clean extracted claim
             $table->string('language', 10)->default('bn');
             $table->string('status')->default('pending'); // pending, processing, completed, failed
-            $table->string('verdict')->nullable(); // true, false, misleading, unverified
+            $table->string('verdict')->nullable();     // true, false, misleading, unverified
             $table->float('confidence_score')->nullable();
             $table->json('evidence')->nullable();
             $table->json('sources')->nullable();

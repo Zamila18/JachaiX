@@ -10,7 +10,9 @@ class Claim extends Model
     protected $fillable = [
         'input_type',
         'raw_input',
+        'file_path',
         'extracted_text',
+        'claim_text',
         'language',
         'status',
         'verdict',

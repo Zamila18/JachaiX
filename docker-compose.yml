@@ -19,13 +19,16 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./backend:/var/www/html
+    env_file:
+      - ./backend/.env
     depends_on:
       - mysql
       - redis
+      - qdrant
     networks:
       - jachaix
 
-    mysql:
+  mysql:
     image: mysql:8.0
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -56,6 +59,40 @@ services:
       - qdrant_data:/qdrant/storage
     networks:
       - jachaix
+
+  ocr-service:
+    build:
+      context: ./services/ocr-service
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    networks:
+      - jachaix
+    restart: unless-stopped
+
+  embedder-service:
+    build:
+      context: ./services/embedder-service
+      dockerfile: Dockerfile
+    ports:
+      - "5002:5002"
+    environment:
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+      QDRANT_COLLECTION: jachaix_knowledge
+    networks:
+      - jachaix
+    restart: unless-stopped
+
+  reranker-service:
+    build:
+      context: ./services/reranker-service
+      dockerfile: Dockerfile
+    ports:
+      - "5003:5003"
+    networks:
+      - jachaix
+    restart: unless-stopped
 
 volumes:
   mysql_data:
