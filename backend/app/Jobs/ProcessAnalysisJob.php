@@ -122,11 +122,12 @@ class ProcessAnalysisJob implements ShouldQueue
         return $response->json('result.full_text', '');
     }
 
-    // ── STEP 2: Extract clean claim via OpenAI ────────────────────────────
+    // ── STEP 2: Extract clean claim via LLM ─────────────────────────────
     private function extractClaim(string $rawText): string
     {
         $response = Http::withToken(config('jachaix.llm.api_key'))
-            ->post('https://api.openai.com/v1/chat/completions', [
+            ->baseUrl(config('jachaix.llm.base_url'))
+            ->post('chat/completions', [
                 'model'      => config('jachaix.llm.model'),
                 'messages'   => [
                     [
@@ -195,7 +196,8 @@ class ProcessAnalysisJob implements ShouldQueue
         $hasEvidence = !empty($evidence);
 
         $response = Http::withToken(config('jachaix.llm.api_key'))
-            ->post('https://api.openai.com/v1/chat/completions', [
+            ->baseUrl(config('jachaix.llm.base_url'))
+            ->post('chat/completions', [
                 'model'           => config('jachaix.llm.model'),
                 'messages'        => [
                     [

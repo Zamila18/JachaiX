@@ -14,7 +14,8 @@ return [
     ],
 
     'llm' => [
-        'api_key' => env('OPENAI_API_KEY'),
-        'model'   => env('OPENAI_MODEL', 'gpt-4o-mini'),
+        'api_key'  => env('OPENAI_API_KEY'),
+        'model'    => env('OPENAI_MODEL', 'llama3.2'),
+        'base_url' => env('OPENAI_BASE_URL', 'http://host.docker.internal:11434/v1'),
     ],
 ];
