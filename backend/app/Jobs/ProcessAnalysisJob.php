@@ -44,7 +44,11 @@ class ProcessAnalysisJob implements ShouldQueue
             $this->claim->update(['extracted_text' => $text]);
 
             // ── STEP 2: Extract clean verifiable claim ────────────────────
-            $claimText = $this->extractClaim($text);
+            // For text input the user already typed the claim — skip LLM extraction.
+            // Only run extractClaim on image/pdf to clean up noisy OCR output.
+            $claimText = ($this->claim->input_type === 'text')
+                ? $text
+                : $this->extractClaim($text);
             $this->claim->update(['claim_text' => $claimText]);
 
             // ── STEP 3: Embed + Search Qdrant for top 10 evidence ─────────
@@ -125,28 +129,40 @@ class ProcessAnalysisJob implements ShouldQueue
     // ── STEP 2: Extract clean claim via LLM ─────────────────────────────
     private function extractClaim(string $rawText): string
     {
-        $response = Http::withToken(config('jachaix.llm.api_key'))
+        $response = Http::timeout(90)
+            ->withToken(config('jachaix.llm.api_key'))
             ->baseUrl(config('jachaix.llm.base_url'))
             ->post('chat/completions', [
                 'model'      => config('jachaix.llm.model'),
                 'messages'   => [
                     [
                         'role'    => 'system',
-                        'content' => 'You are a fact-checking assistant specializing in Bangla and English content. Extract the single main verifiable factual claim from the text. Return only the clean claim as one plain sentence. Preserve the original language (Bangla or English). If no clear factual claim exists, return the original text unchanged. Do not add explanation.',
+                        'content' => 'Your task is text extraction only. Read the user text and output the single main factual claim as one sentence. Output ONLY the claim sentence — no explanation, no verdict, no commentary. Keep the original language (Bangla or English). If the text is already a clear claim, output it as-is.',
                     ],
                     [
                         'role'    => 'user',
-                        'content' => "Extract the main factual claim:\n\n{$rawText}",
+                        'content' => "Text: {$rawText}\n\nOutput the main factual claim sentence:",
                     ],
                 ],
-                'max_tokens' => 200,
+                'max_tokens' => 150,
             ]);
 
         if ($response->failed()) {
             return $rawText;
         }
 
-        return trim($response->json('choices.0.message.content') ?? $rawText);
+        $extracted = trim($response->json('choices.0.message.content') ?? $rawText);
+        // Fall back to raw input if LLM returned garbage or meta-commentary
+        if (empty($extracted) || str_word_count($extracted) < 3) {
+            return $rawText;
+        }
+        $metaPatterns = ["couldn't", "cannot", "can't", "unable to", "no clear", "i don't", "i cannot", "no factual", "not a factual"];
+        foreach ($metaPatterns as $pattern) {
+            if (stripos($extracted, $pattern) !== false) {
+                return $rawText;
+            }
+        }
+        return $extracted;
     }
 
     // ── STEP 3: Embed + Qdrant search ─────────────────────────────────────
@@ -195,24 +211,26 @@ class ProcessAnalysisJob implements ShouldQueue
 
         $hasEvidence = !empty($evidence);
 
-        $response = Http::withToken(config('jachaix.llm.api_key'))
+        $userPrompt = $hasEvidence
+            ? "Claim: {$claim}\n\nEvidence:\n{$evidenceText}\n\nReturn ONLY valid JSON with keys: verdict, confidence, explanation, sources."
+            : "Claim: {$claim}\n\nEvidence: No relevant evidence found in knowledge base.\n\nReturn ONLY valid JSON with keys: verdict, confidence, explanation, sources.";
+
+        $response = Http::timeout(120)
+            ->withToken(config('jachaix.llm.api_key'))
             ->baseUrl(config('jachaix.llm.base_url'))
             ->post('chat/completions', [
-                'model'           => config('jachaix.llm.model'),
-                'messages'        => [
+                'model'    => config('jachaix.llm.model'),
+                'messages' => [
                     [
                         'role'    => 'system',
-                        'content' => 'You are a Bangla and English fact-checking AI. Analyze the claim against the provided evidence. Return a JSON object with these exact keys: verdict (one of: true, false, misleading, unverified), confidence (float 0.0 to 1.0), explanation (2-3 sentences in the same language as the claim), sources (array of source URLs used). Be conservative — if evidence is weak or missing, return unverified with low confidence.',
+                        'content' => 'You are a Bangla and English fact-checking AI. Analyze the claim against the provided evidence. You MUST respond with ONLY a valid JSON object — no markdown, no explanation outside the JSON. The JSON must have exactly these keys: "verdict" (one of: "true", "false", "misleading", "unverified"), "confidence" (float 0.0-1.0), "explanation" (2-3 sentences), "sources" (array of URLs). Be conservative — if evidence is weak or missing, use "unverified" with low confidence.',
                     ],
                     [
                         'role'    => 'user',
-                        'content' => $hasEvidence
-                            ? "Claim: {$claim}\n\nEvidence:\n{$evidenceText}"
-                            : "Claim: {$claim}\n\nEvidence: No relevant evidence found in knowledge base.",
+                        'content' => $userPrompt,
                     ],
                 ],
-                'response_format' => ['type' => 'json_object'],
-                'max_tokens'      => 500,
+                'max_tokens' => 500,
             ]);
 
         if ($response->failed()) {
@@ -224,14 +242,31 @@ class ProcessAnalysisJob implements ShouldQueue
             ];
         }
 
-        $content = $response->json('choices.0.message.content');
-        $decoded = $content ? json_decode($content, true) : null;
+        $content = $response->json('choices.0.message.content', '');
+        // Strip markdown code fences if present
+        $content = preg_replace('/^```(?:json)?\s*/i', '', trim($content));
+        $content = preg_replace('/\s*```$/', '', $content);
+        // Extract first JSON object from content
+        if (preg_match('/\{.*\}/s', $content, $matches)) {
+            $decoded = json_decode($matches[0], true);
+        } else {
+            $decoded = json_decode($content, true);
+        }
 
-        return $decoded ?? [
-            'verdict'     => 'unverified',
-            'confidence'  => 0.0,
-            'explanation' => 'Analysis could not be completed.',
-            'sources'     => [],
+        if (!is_array($decoded) || !isset($decoded['verdict'])) {
+            return [
+                'verdict'     => 'unverified',
+                'confidence'  => 0.0,
+                'explanation' => 'Analysis could not be completed.',
+                'sources'     => [],
+            ];
+        }
+
+        return [
+            'verdict'     => $decoded['verdict'] ?? 'unverified',
+            'confidence'  => (float)($decoded['confidence'] ?? 0.0),
+            'explanation' => $decoded['explanation'] ?? '',
+            'sources'     => $decoded['sources'] ?? [],
         ];
     }
 }
