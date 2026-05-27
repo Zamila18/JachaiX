@@ -4,8 +4,8 @@ import easyocr
 from app.utils.text_cleaning import clean_ocr_text
 import io
 
-# EasyOCR supports Bangla ('bn') and English ('en') — models stored on E drive
-ocr_reader = easyocr.Reader(['bn', 'en'], gpu=False, model_storage_directory=r'E:\easyocr-models\model')
+# EasyOCR supports Bangla ('bn') and English ('en') — models cached at container path
+ocr_reader = easyocr.Reader(['bn', 'en'], gpu=False, model_storage_directory='/root/.EasyOCR/model')
 
 def extract_text_from_image(file_bytes: bytes) -> dict:
     image = Image.open(io.BytesIO(file_bytes)).convert("RGB")

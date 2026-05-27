@@ -66,6 +66,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5001:5001"
+    volumes:
+      - easyocr_models:/root/.EasyOCR
     networks:
       - jachaix
     restart: unless-stopped
@@ -79,7 +81,7 @@ services:
     environment:
       QDRANT_HOST: qdrant
       QDRANT_PORT: 6333
-      QDRANT_COLLECTION: jachaix_knowledge
+      QDRANT_COLLECTION: knowledge_base
     networks:
       - jachaix
     restart: unless-stopped
@@ -98,6 +100,7 @@ volumes:
   mysql_data:
   qdrant_data:
   redis_data:
+  easyocr_models:
 
 networks:
   jachaix:
