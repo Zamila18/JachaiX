@@ -1,0 +1,50 @@
+﻿{
+    "generated_at":  "2026-05-29T14:19:37",
+    "base_url":  "http://127.0.0.1:8080/api/v1",
+    "input":  {
+                  "text":  "বাংলাদেশের রাজধানী ঢাকা.",
+                  "language":  "bn"
+              },
+    "claim_id":  75,
+    "final_status":  "completed",
+    "result":  {
+                   "id":  75,
+                   "status":  "completed",
+                   "input_type":  "text",
+                   "extracted_text":  "?????????? ??????? ????.",
+                   "claim_text":  "?? ?? ??.",
+                   "verdict":  "false",
+                   "confidence_score":  0.831,
+                   "trust_label":  "Trustworthy",
+                   "trust_breakdown":  {
+                                           "coverage":  1,
+                                           "lang_clarity":  0.2,
+                                           "llm_confidence":  0.66,
+                                           "verdict_weight":  0.9,
+                                           "avg_reliability":  0.86,
+                                           "evidence_strength":  1
+                                       },
+                   "explanation":  "Weighted evidence from trusted sources leans against the claim, so the system treats it as false or misleading.",
+                   "sources":  [
+                                   "https://rumorscanner.com/fact-check/sarjis-alam-fake-quote-about-dr-yunus-vaccine-money-and-flood-funds/207201",
+                                   "https://rumorscanner.com/fact-check/claim-ai-video-elephant-carries-tiger-on-its-back-indonesia/206516",
+                                   "https://rumorscanner.com/fact-check/shishir-manir-ramisa-edited-amar-desh-photocard/207523",
+                                   "https://rumorscanner.com/fact-check/proud-of-being-a-july-fighter-rather-than-a-father-fake-comment-mahmuda-mitu/206780",
+                                   "https://rumorscanner.com/fact-check/lopa-kaysar-not-say-they-arent-july-movement-worker-false-quote/206879"
+                               ],
+                   "language":  "bn",
+                   "normalization":  {
+                                         "id":  "claim_75",
+                                         "language":  "bn",
+                                         "modality":  "text",
+                                         "raw_text":  "?????????? ??????? ????.",
+                                         "normalized_text":  "?? ?? ??.",
+                                         "source_metadata":  {
+                                                                 "parser":  "text_input",
+                                                                 "file_path":  null
+                                                             },
+                                         "extraction_confidence":  1
+                                     },
+                   "created_at":  "2026-05-29T08:18:27.000000Z"
+               }
+}

@@ -1,0 +1,16 @@
+[
+  {
+    "id": "s01",
+    "text": "বাংলাদেশের রাজধানী ঢাকা।",
+    "language": "bn",
+    "expected_verdict": "true",
+    "category": "general_fact"
+  },
+  {
+    "id": "s02",
+    "text": "2 + 2 equals 5.",
+    "language": "en",
+    "expected_verdict": "false",
+    "category": "general_fact"
+  }
+]

@@ -1,0 +1,174 @@
+{
+  "base_url": "http://127.0.0.1:8080/api/v1",
+  "input": "e:/jachaix/scripts/benchmark_must_pass_quick.json",
+  "metrics": {
+    "samples_total": 12,
+    "samples_scored": 12,
+    "accuracy": 0.8333,
+    "macro_precision": 0.45,
+    "macro_recall": 0.4643,
+    "macro_f1": 0.453,
+    "per_class": {
+      "true": {
+        "precision": 0.8,
+        "recall": 1.0,
+        "f1": 0.8889,
+        "support": 4
+      },
+      "false": {
+        "precision": 1.0,
+        "recall": 0.8571,
+        "f1": 0.9231,
+        "support": 7
+      },
+      "misleading": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 1
+      },
+      "unverified": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      }
+    },
+    "confusion_matrix": {
+      "true": {
+        "true": 4,
+        "false": 0,
+        "misleading": 0,
+        "unverified": 0
+      },
+      "false": {
+        "true": 0,
+        "false": 6,
+        "misleading": 0,
+        "unverified": 1
+      },
+      "misleading": {
+        "true": 1,
+        "false": 0,
+        "misleading": 0,
+        "unverified": 0
+      },
+      "unverified": {
+        "true": 0,
+        "false": 0,
+        "misleading": 0,
+        "unverified": 0
+      }
+    }
+  },
+  "rows": [
+    {
+      "id": "q01",
+      "claim_id": 158,
+      "text": "WHO says COVID-19 vaccines do not contain microchips.",
+      "language": "international",
+      "expected_verdict": "true",
+      "predicted_verdict": "true",
+      "status": "completed"
+    },
+    {
+      "id": "q02",
+      "claim_id": 159,
+      "text": "COVID-19 vaccines contain microchips to track people.",
+      "language": "international",
+      "expected_verdict": "false",
+      "predicted_verdict": "false",
+      "status": "completed"
+    },
+    {
+      "id": "q03",
+      "claim_id": 160,
+      "text": "NASA confirmed the presence of water on sunlit parts of the Moon.",
+      "language": "international",
+      "expected_verdict": "true",
+      "predicted_verdict": "true",
+      "status": "completed"
+    },
+    {
+      "id": "q04",
+      "claim_id": 161,
+      "text": "NASA said the Moon has no detectable water at all.",
+      "language": "international",
+      "expected_verdict": "false",
+      "predicted_verdict": "unverified",
+      "status": "completed"
+    },
+    {
+      "id": "q05",
+      "claim_id": 162,
+      "text": "The Great Wall of China is visible from the Moon with the naked eye.",
+      "language": "international",
+      "expected_verdict": "false",
+      "predicted_verdict": "false",
+      "status": "completed"
+    },
+    {
+      "id": "q06",
+      "claim_id": 163,
+      "text": "An old protest video was reshared as if it showed current Eid chaos in Dhaka.",
+      "language": "international",
+      "expected_verdict": "misleading",
+      "predicted_verdict": "true",
+      "status": "completed"
+    },
+    {
+      "id": "q07",
+      "claim_id": 164,
+      "text": "Reuters reported that an Illinois chemical tank explosion killed one person and left nine missing.",
+      "language": "en",
+      "expected_verdict": "true",
+      "predicted_verdict": "true",
+      "status": "completed"
+    },
+    {
+      "id": "q08",
+      "claim_id": 165,
+      "text": "Reuters reported that no one was killed or missing after the Illinois chemical tank explosion.",
+      "language": "en",
+      "expected_verdict": "false",
+      "predicted_verdict": "false",
+      "status": "completed"
+    },
+    {
+      "id": "q09",
+      "claim_id": 166,
+      "text": "Bangladesh became independent in 1972.",
+      "language": "en",
+      "expected_verdict": "false",
+      "predicted_verdict": "false",
+      "status": "completed"
+    },
+    {
+      "id": "q10",
+      "claim_id": 167,
+      "text": "bangladesher rajdhani chattogram",
+      "language": "banglish",
+      "expected_verdict": "false",
+      "predicted_verdict": "false",
+      "status": "completed"
+    },
+    {
+      "id": "q11",
+      "claim_id": 168,
+      "text": "bangladesher rajdhani dhaka",
+      "language": "banglish",
+      "expected_verdict": "true",
+      "predicted_verdict": "true",
+      "status": "completed"
+    },
+    {
+      "id": "q12",
+      "claim_id": 169,
+      "text": "illinois chemical tank explosion leaves 10 dead",
+      "language": "banglish",
+      "expected_verdict": "false",
+      "predicted_verdict": "false",
+      "status": "completed"
+    }
+  ]
+}

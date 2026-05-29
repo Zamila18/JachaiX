@@ -1,0 +1,46 @@
+﻿{
+    "generated_at":  "2026-05-29T14:17:31",
+    "base_url":  "http://127.0.0.1:8080/api/v1",
+    "input":  {
+                  "text":  "বাংলাদেশের রাজধানী ঢাকা.",
+                  "language":  "bn"
+              },
+    "claim_id":  74,
+    "final_status":  "completed",
+    "result":  {
+                   "id":  74,
+                   "status":  "completed",
+                   "input_type":  "text",
+                   "extracted_text":  "?????????? ??????? ????.",
+                   "claim_text":  "?? ?? ??.",
+                   "verdict":  "false",
+                   "confidence_score":  0.285,
+                   "trust_label":  "Suspicious",
+                   "trust_breakdown":  {
+                                           "coverage":  0,
+                                           "lang_clarity":  0.2,
+                                           "llm_confidence":  0.5,
+                                           "verdict_weight":  0.9,
+                                           "avg_reliability":  0.5,
+                                           "evidence_strength":  0
+                                       },
+                   "explanation":  "No relevant evidence was found in the knowledge base to support the claim.",
+                   "sources":  [
+
+                               ],
+                   "language":  "bn",
+                   "normalization":  {
+                                         "id":  "claim_74",
+                                         "language":  "bn",
+                                         "modality":  "text",
+                                         "raw_text":  "?????????? ??????? ????.",
+                                         "normalized_text":  "?? ?? ??.",
+                                         "source_metadata":  {
+                                                                 "parser":  "text_input",
+                                                                 "file_path":  null
+                                                             },
+                                         "extraction_confidence":  1
+                                     },
+                   "created_at":  "2026-05-29T08:17:00.000000Z"
+               }
+}

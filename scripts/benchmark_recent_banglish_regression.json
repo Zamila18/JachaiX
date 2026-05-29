@@ -1,0 +1,30 @@
+[
+  {
+    "id": "r01",
+    "text": "Illinois chemical tank explosion leaves 1 dead.",
+    "language": "banglish",
+    "expected_verdict": "true",
+    "category": "recent_news_banglish"
+  },
+  {
+    "id": "r02",
+    "text": "Illinois chemical tank explosion leaves 10 dead.",
+    "language": "banglish",
+    "expected_verdict": "false",
+    "category": "recent_news_banglish"
+  },
+  {
+    "id": "r03",
+    "text": "WHO says COVID-19 vaccines do not contain microchips.",
+    "language": "international",
+    "expected_verdict": "true",
+    "category": "international_health"
+  },
+  {
+    "id": "r04",
+    "text": "COVID-19 vaccines contain microchips to track people.",
+    "language": "international",
+    "expected_verdict": "false",
+    "category": "international_health"
+  }
+]

@@ -1,0 +1,367 @@
+{
+  "base_url": "http://127.0.0.1:8080/api/v1",
+  "input": "E:\\jachaix\\scripts\\benchmark_recent_banglish_regression.json",
+  "generated_at_unix": 1780047889,
+  "metrics": {
+    "samples_total": 4,
+    "samples_scored": 4,
+    "accuracy": 0.75,
+    "macro_precision": 0.4167,
+    "macro_recall": 0.375,
+    "macro_f1": 0.3667,
+    "per_class": {
+      "true": {
+        "precision": 0.6667,
+        "recall": 1.0,
+        "f1": 0.8,
+        "support": 2
+      },
+      "false": {
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6667,
+        "support": 2
+      },
+      "misleading": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
+      "unverified": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      }
+    },
+    "confusion_matrix": {
+      "true": {
+        "true": 2,
+        "false": 0,
+        "misleading": 0,
+        "unverified": 0
+      },
+      "false": {
+        "true": 1,
+        "false": 1,
+        "misleading": 0,
+        "unverified": 0
+      },
+      "misleading": {
+        "true": 0,
+        "false": 0,
+        "misleading": 0,
+        "unverified": 0
+      },
+      "unverified": {
+        "true": 0,
+        "false": 0,
+        "misleading": 0,
+        "unverified": 0
+      }
+    },
+    "by_language": {
+      "banglish": {
+        "samples_total": 2,
+        "samples_scored": 2,
+        "accuracy": 1.0,
+        "macro_precision": 0.5,
+        "macro_recall": 0.5,
+        "macro_f1": 0.5,
+        "per_class": {
+          "true": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 1
+          },
+          "false": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 1
+          },
+          "misleading": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "unverified": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "true": {
+            "true": 1,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "false": {
+            "true": 0,
+            "false": 1,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "misleading": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "unverified": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          }
+        }
+      },
+      "international": {
+        "samples_total": 2,
+        "samples_scored": 2,
+        "accuracy": 0.5,
+        "macro_precision": 0.125,
+        "macro_recall": 0.25,
+        "macro_f1": 0.1667,
+        "per_class": {
+          "true": {
+            "precision": 0.5,
+            "recall": 1.0,
+            "f1": 0.6667,
+            "support": 1
+          },
+          "false": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 1
+          },
+          "misleading": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "unverified": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "true": {
+            "true": 1,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "false": {
+            "true": 1,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "misleading": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "unverified": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          }
+        }
+      }
+    },
+    "by_category": {
+      "international_health": {
+        "samples_total": 2,
+        "samples_scored": 2,
+        "accuracy": 0.5,
+        "macro_precision": 0.125,
+        "macro_recall": 0.25,
+        "macro_f1": 0.1667,
+        "per_class": {
+          "true": {
+            "precision": 0.5,
+            "recall": 1.0,
+            "f1": 0.6667,
+            "support": 1
+          },
+          "false": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 1
+          },
+          "misleading": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "unverified": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "true": {
+            "true": 1,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "false": {
+            "true": 1,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "misleading": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "unverified": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          }
+        }
+      },
+      "recent_news_banglish": {
+        "samples_total": 2,
+        "samples_scored": 2,
+        "accuracy": 1.0,
+        "macro_precision": 0.5,
+        "macro_recall": 0.5,
+        "macro_f1": 0.5,
+        "per_class": {
+          "true": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 1
+          },
+          "false": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 1
+          },
+          "misleading": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "unverified": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "true": {
+            "true": 1,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "false": {
+            "true": 0,
+            "false": 1,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "misleading": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "unverified": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          }
+        }
+      }
+    }
+  },
+  "rows": [
+    {
+      "id": "r01",
+      "text": "Illinois chemical tank explosion leaves 1 dead.",
+      "language": "banglish",
+      "expected_verdict": "true",
+      "category": "recent_news_banglish",
+      "claim_id": 111,
+      "status": "completed",
+      "predicted_verdict": "true",
+      "predicted_confidence": 0.6473,
+      "error": null,
+      "explanation": "The claim is written in Bangla and should be interpreted as English.",
+      "sources_count": 1
+    },
+    {
+      "id": "r02",
+      "text": "Illinois chemical tank explosion leaves 10 dead.",
+      "language": "banglish",
+      "expected_verdict": "false",
+      "category": "recent_news_banglish",
+      "claim_id": 113,
+      "status": "completed",
+      "predicted_verdict": "false",
+      "predicted_confidence": 0.6323,
+      "error": null,
+      "explanation": "Claim numbers conflict with retrieved evidence for casualty counts, so this claim is marked false.",
+      "sources_count": 1
+    },
+    {
+      "id": "r03",
+      "text": "WHO says COVID-19 vaccines do not contain microchips.",
+      "language": "international",
+      "expected_verdict": "true",
+      "category": "international_health",
+      "claim_id": 115,
+      "status": "completed",
+      "predicted_verdict": "true",
+      "predicted_confidence": 0.6513,
+      "error": null,
+      "explanation": "Evidence from the World Health Organization confirms that COVID-19 vaccines do not contain microchips or tracking devices.",
+      "sources_count": 1
+    },
+    {
+      "id": "r04",
+      "text": "COVID-19 vaccines contain microchips to track people.",
+      "language": "international",
+      "expected_verdict": "false",
+      "category": "international_health",
+      "claim_id": 118,
+      "status": "completed",
+      "predicted_verdict": "true",
+      "predicted_confidence": 0.6513,
+      "error": null,
+      "explanation": "Evidence from WHO's guidance on vaccine misinformation confirms that COVID-19 vaccines do not contain microchips or tracking devices.",
+      "sources_count": 1
+    }
+  ]
+}

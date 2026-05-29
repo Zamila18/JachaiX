@@ -1,0 +1,82 @@
+[
+  {
+    "id": "m01",
+    "text": "NASA confirmed the presence of water on sunlit parts of the Moon.",
+    "language": "international",
+    "expected_verdict": "true",
+    "category": "international_science",
+    "rationale": "Supported by Reuters coverage of NASA's SOFIA finding."
+  },
+  {
+    "id": "m02",
+    "text": "NASA said the Moon has no detectable water at all.",
+    "language": "international",
+    "expected_verdict": "false",
+    "category": "international_science",
+    "rationale": "Contradicted by Reuters coverage of NASA's confirmation of lunar water."
+  },
+  {
+    "id": "m03",
+    "text": "WHO says COVID-19 vaccines do not contain microchips.",
+    "language": "international",
+    "expected_verdict": "true",
+    "category": "international_health",
+    "rationale": "Aligned with WHO misinformation guidance."
+  },
+  {
+    "id": "m04",
+    "text": "COVID-19 vaccines contain microchips to track people.",
+    "language": "international",
+    "expected_verdict": "false",
+    "category": "international_health",
+    "rationale": "Contradicted by WHO guidance."
+  },
+  {
+    "id": "m05",
+    "text": "The Great Wall of China is visible from the Moon with the naked eye.",
+    "language": "international",
+    "expected_verdict": "false",
+    "category": "international_myth",
+    "rationale": "AP fact check describes this as a longstanding myth."
+  },
+  {
+    "id": "m06",
+    "text": "An old protest video was reshared as if it showed current Eid chaos in Dhaka.",
+    "language": "international",
+    "expected_verdict": "misleading",
+    "category": "international_fact_check",
+    "rationale": "BBC Verify determined the footage was authentic but out of context."
+  },
+  {
+    "id": "m07",
+    "text": "Reuters reported that an Illinois chemical tank explosion killed one person and left nine missing.",
+    "language": "en",
+    "expected_verdict": "true",
+    "category": "international_news",
+    "rationale": "Matches the seeded Reuters article."
+  },
+  {
+    "id": "m08",
+    "text": "Reuters reported that no one was killed or missing after the Illinois chemical tank explosion.",
+    "language": "en",
+    "expected_verdict": "false",
+    "category": "international_news",
+    "rationale": "Inverse of the seeded Reuters report."
+  },
+  {
+    "id": "m09",
+    "text": "UN News warned that least developed countries face disproportionate climate losses.",
+    "language": "international",
+    "expected_verdict": "true",
+    "category": "international_climate",
+    "rationale": "Directly supported by the seeded UN News article."
+  },
+  {
+    "id": "m10",
+    "text": "The UN said climate change no longer poses a major risk to least developed countries.",
+    "language": "international",
+    "expected_verdict": "false",
+    "category": "international_climate",
+    "rationale": "Contradicted by the seeded UN News article."
+  }
+]

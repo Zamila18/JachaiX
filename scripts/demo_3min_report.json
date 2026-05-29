@@ -1,0 +1,59 @@
+{
+  "generated_at_unix": 1780061492,
+  "base_url": "http://127.0.0.1:8080/api/v1",
+  "samples_total": 4,
+  "samples_scored": 4,
+  "accuracy": 1.0,
+  "sla_30s_pass_rate": 0.0,
+  "total_wall_seconds": 121.239,
+  "rows": [
+    {
+      "id": "d01",
+      "claim_id": 242,
+      "text": "Illinois chemical tank explosion leaves 1 dead.",
+      "language": "banglish",
+      "expected": "true",
+      "status": "completed",
+      "predicted": "true",
+      "elapsed_seconds": 42.29,
+      "confidence": 0.6036,
+      "sources_count": 1
+    },
+    {
+      "id": "d02",
+      "claim_id": 243,
+      "text": "Illinois chemical tank explosion leaves 10 dead.",
+      "language": "banglish",
+      "expected": "false",
+      "status": "completed",
+      "predicted": "false",
+      "elapsed_seconds": 62.169,
+      "confidence": 0.5897,
+      "sources_count": 1
+    },
+    {
+      "id": "d03",
+      "claim_id": 244,
+      "text": "WHO says COVID-19 vaccines do not contain microchips.",
+      "language": "international",
+      "expected": "true",
+      "status": "completed",
+      "predicted": "true",
+      "elapsed_seconds": 70.743,
+      "confidence": 0.6513,
+      "sources_count": 1
+    },
+    {
+      "id": "d04",
+      "claim_id": 245,
+      "text": "COVID-19 vaccines contain microchips to track people.",
+      "language": "international",
+      "expected": "false",
+      "status": "completed",
+      "predicted": "false",
+      "elapsed_seconds": 78.822,
+      "confidence": 0.6363,
+      "sources_count": 1
+    }
+  ]
+}

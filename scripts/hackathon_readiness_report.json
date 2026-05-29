@@ -1,0 +1,95 @@
+{
+  "generated_at_unix": 1780061369,
+  "base_url": "http://127.0.0.1:8080/api/v1",
+  "checks_total": 3,
+  "checks_passed": 1,
+  "overall_ok": false,
+  "checks": [
+    {
+      "name": "api_health",
+      "ok": false,
+      "elapsed_ms": 10029,
+      "error": "HTTPConnectionPool(host='127.0.0.1', port=8080): Read timed out. (read timeout=10)"
+    },
+    {
+      "name": "kb_status",
+      "ok": true,
+      "status_code": 200,
+      "elapsed_ms": 8911,
+      "detail": {
+        "status": "fresh",
+        "started_at_utc": "2026-05-29T12:42:35.5430382Z",
+        "refreshed_at_utc": "2026-05-29T12:44:30.5269524Z",
+        "repo_root": "E:\\jachaix",
+        "python_executable": "E:\\Python310\\python.exe",
+        "raw_article_files": 216,
+        "reset_qdrant": false,
+        "full_ingest": false,
+        "crawler_enabled": true,
+        "crawler_status": {
+          "status": "ok",
+          "started_at_utc": "2026-05-29T12:42:36.387206+00:00",
+          "finished_at_utc": "2026-05-29T12:42:37.637981+00:00",
+          "sources_total": 4,
+          "sources_ok": 2,
+          "sources_failed": 2,
+          "items_written": 6,
+          "items_new": 1,
+          "details": [
+            {
+              "source": "reuters_world",
+              "url": "https://feeds.reuters.com/Reuters/worldNews",
+              "error": "HTTPSConnectionPool(host='feeds.reuters.com', port=443): Max retries exceeded with url: /Reuters/worldNews (Caused by NameResolutionError(\"HTTPSConnection(host='feeds.reuters.com', port=443): Failed to resolve 'feeds.reuters.com' ([Errno 11001] getaddrinfo failed)\"))",
+              "fetched_items": 0,
+              "written_items": 0,
+              "new_items": 0,
+              "sample_files": []
+            },
+            {
+              "source": "ap_top",
+              "url": "https://feeds.apnews.com/apf-topnews",
+              "error": "HTTPSConnectionPool(host='feeds.apnews.com', port=443): Max retries exceeded with url: /apf-topnews (Caused by NameResolutionError(\"HTTPSConnection(host='feeds.apnews.com', port=443): Failed to resolve 'feeds.apnews.com' ([Errno 11001] getaddrinfo failed)\"))",
+              "fetched_items": 0,
+              "written_items": 0,
+              "new_items": 0,
+              "sample_files": []
+            },
+            {
+              "source": "un_news",
+              "url": "https://news.un.org/feed/subscribe/en/news/all/rss.xml",
+              "error": null,
+              "fetched_items": 30,
+              "written_items": 4,
+              "new_items": 0,
+              "sample_files": [
+                "crawl_un_news_bca6efcf2b.json",
+                "crawl_un_news_b331b88d37.json",
+                "crawl_un_news_d01a333360.json"
+              ]
+            },
+            {
+              "source": "who_news",
+              "url": "https://www.who.int/rss-feeds/news-english.xml",
+              "error": null,
+              "fetched_items": 25,
+              "written_items": 2,
+              "new_items": 1,
+              "sample_files": [
+                "crawl_who_news_2dd8bf7068.json",
+                "crawl_who_news_764dc5c9cd.json"
+              ]
+            }
+          ]
+        },
+        "chunker_pattern": "*.json"
+      }
+    },
+    {
+      "name": "quick_claim",
+      "ok": false,
+      "elapsed_ms": 53197,
+      "claim_id": 241,
+      "status": "processing"
+    }
+  ]
+}

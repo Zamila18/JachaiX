@@ -19,22 +19,24 @@ def extract_text_from_image(file_bytes: bytes) -> dict:
     count = 0
 
     for (bbox, text, confidence) in result:
+        confidence_value = float(confidence)
         extracted_lines.append({
             "text": text,
-            "confidence": round(confidence, 4)
+            "confidence": round(confidence_value, 4)
         })
         full_text += text + " "
-        total_confidence += confidence
+        total_confidence += confidence_value
         count += 1
 
-    avg_confidence = round(total_confidence / count, 4) if count > 0 else 0
+    avg_confidence = float(round(total_confidence / count, 4)) if count > 0 else 0.0
     cleaned = clean_ocr_text(full_text.strip())
+    needs_human_review = bool(avg_confidence < 0.6)
 
     return {
         "full_text": cleaned["text"],
         "language": cleaned["language"],
         "word_count": cleaned["word_count"],
         "avg_confidence": avg_confidence,
-        "needs_human_review": avg_confidence < 0.6,
+        "needs_human_review": needs_human_review,
         "lines": extracted_lines
     }

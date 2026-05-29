@@ -1,0 +1,14 @@
+[
+  {"id":"q01","text":"WHO says COVID-19 vaccines do not contain microchips.","language":"international","expected_verdict":"true","category":"health_negation"},
+  {"id":"q02","text":"COVID-19 vaccines contain microchips to track people.","language":"international","expected_verdict":"false","category":"health_negation"},
+  {"id":"q03","text":"NASA confirmed the presence of water on sunlit parts of the Moon.","language":"international","expected_verdict":"true","category":"science_polarity"},
+  {"id":"q04","text":"NASA said the Moon has no detectable water at all.","language":"international","expected_verdict":"false","category":"science_polarity"},
+  {"id":"q05","text":"The Great Wall of China is visible from the Moon with the naked eye.","language":"international","expected_verdict":"false","category":"myth"},
+  {"id":"q06","text":"An old protest video was reshared as if it showed current Eid chaos in Dhaka.","language":"international","expected_verdict":"misleading","category":"old_footage"},
+  {"id":"q07","text":"Reuters reported that an Illinois chemical tank explosion killed one person and left nine missing.","language":"en","expected_verdict":"true","category":"numbers"},
+  {"id":"q08","text":"Reuters reported that no one was killed or missing after the Illinois chemical tank explosion.","language":"en","expected_verdict":"false","category":"numbers"},
+  {"id":"q09","text":"Bangladesh became independent in 1972.","language":"en","expected_verdict":"false","category":"year_conflict"},
+  {"id":"q10","text":"bangladesher rajdhani chattogram","language":"banglish","expected_verdict":"false","category":"banglish_baseline"},
+  {"id":"q11","text":"bangladesher rajdhani dhaka","language":"banglish","expected_verdict":"true","category":"banglish_baseline"},
+  {"id":"q12","text":"illinois chemical tank explosion leaves 10 dead","language":"banglish","expected_verdict":"false","category":"banglish_numbers"}
+]

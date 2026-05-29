@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   nginx:
     image: nginx:alpine
@@ -92,6 +90,24 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5003:5003"
+    networks:
+      - jachaix
+    restart: unless-stopped
+
+  mcp-server:
+    build:
+      context: ./services/mcp-server
+      dockerfile: Dockerfile
+    ports:
+      - "5004:5004"
+    environment:
+      JACHAIX_API_URL: http://nginx/api/v1
+      EMBEDDER_URL: http://embedder-service:5002
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 5004
+    depends_on:
+      - nginx
+      - embedder-service
     networks:
       - jachaix
     restart: unless-stopped

@@ -1,0 +1,452 @@
+[
+  {
+    "id": "v2_1c9a2ad4",
+    "text": "ঈদুল আযহার দিন বাংলাদেশের আবহাওয়া কেমন থাকবে?",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "bbc_bangla",
+    "source_file": "bbc_bangla_1d924d4f05.json"
+  },
+  {
+    "id": "v2_0766d5ad",
+    "text": "Fizz takes three in Mumbai rout",
+    "language": "en",
+    "expected_verdict": "unverified",
+    "category": "ai_generated_content",
+    "source": "daily_star",
+    "source_file": "daily_star_40ee994e3e.json"
+  },
+  {
+    "id": "v2_5b3f5b85",
+    "text": "Fact-Check: AI-Generated Clip Viral as Bangladeshi Hindu Girl Asking for Help - The Quint",
+    "language": "en",
+    "expected_verdict": "unverified",
+    "category": "ai_generated_content",
+    "source": "google_news_bd",
+    "source_file": "google_news_bd_1a6f9ae878.json"
+  },
+  {
+    "id": "v2_f5f0029c",
+    "text": "ম্যাচশেষে রিজওয়ানকে নিয়ে লিটনের বক্তব্য দাবিতে ভারতীয় গণমাধ্যমে বানোয়াট তথ্য প্রচার",
+    "language": "bn",
+    "expected_verdict": "false",
+    "category": "news",
+    "source": "daily_star",
+    "source_file": "rumorscanner_005378360d.json"
+  },
+  {
+    "id": "v2_d0bd23a1",
+    "text": "কোন পশু কোরবানি দেওয়া যাবে, আর  কোনগুলো বৈধ হবে না",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "bbc_bangla",
+    "source_file": "bbc_bangla_1e8e669c75.json"
+  },
+  {
+    "id": "v2_9b2a4f42",
+    "text": "The forgotten art of Bengali advertising",
+    "language": "en",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "daily_star",
+    "source_file": "daily_star_4fd8cbf718.json"
+  },
+  {
+    "id": "v2_f68348c6",
+    "text": "BanglaFact detects ‘BD Digest’ as AL’s platform for spreading propaganda - Bangladesh Sangbad Sangstha (BSS)",
+    "language": "en",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "google_news_bd",
+    "source_file": "google_news_bd_1cb1d435ae.json"
+  },
+  {
+    "id": "v2_4eb340f5",
+    "text": "রামিসা হত্যাকাণ্ড নিয়ে অভিনেতা দেবের নামে ভুয়া মন্তব্য প্রচার",
+    "language": "bn",
+    "expected_verdict": "false",
+    "category": "fact_check",
+    "source": "rumorscanner",
+    "source_file": "rumorscanner_04235b881c.json"
+  },
+  {
+    "id": "v2_1a23d4a3",
+    "text": "ইসলাম প্রচারের পর কীভাবে কোরবানি দেয়া চালু হয়েছিল",
+    "language": "bn",
+    "expected_verdict": "misleading",
+    "category": "news",
+    "source": "bbc_bangla",
+    "source_file": "bbc_bangla_2a494cc6ae.json"
+  },
+  {
+    "id": "v2_c1fd8d49",
+    "text": "Doha diary: A historian amid the Iran war",
+    "language": "en",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "daily_star",
+    "source_file": "daily_star_8101485086.json"
+  },
+  {
+    "id": "v2_1dc249be",
+    "text": "Fake Quote Attributed to Netanyahu That \"India Must Protect Bangladeshi Hindus\" - The Quint",
+    "language": "en",
+    "expected_verdict": "false",
+    "category": "news",
+    "source": "google_news_bd",
+    "source_file": "google_news_bd_1e06d231cb.json"
+  },
+  {
+    "id": "v2_b80c2a92",
+    "text": "জুলাই গণঅভ্যুত্থান নিয়ে মিজানুর রহমান আজহারীর নামে ভুয়া মন্তব্য প্রচার",
+    "language": "bn",
+    "expected_verdict": "false",
+    "category": "news",
+    "source": "daily_star",
+    "source_file": "rumorscanner_0531d80ea5.json"
+  },
+  {
+    "id": "v2_c44e04b2",
+    "text": "বাংলাদেশ থেকে ভারতে আসা মতুয়ারা  কেন নাগরিকত্ব পাওয়া নিয়ে নতুন করে দুশ্চিন্তায়?",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "bbc_bangla",
+    "source_file": "bbc_bangla_37fd9b33f4.json"
+  },
+  {
+    "id": "v2_fc0948be",
+    "text": "India’s top-heavy boom and the lesson for Bangladesh",
+    "language": "en",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "daily_star",
+    "source_file": "daily_star_87d4cd6829.json"
+  },
+  {
+    "id": "v2_1b6e7f8f",
+    "text": "Rumor Scanner identifies Indian video falsified as Bangladesh extortion incident - Bangladesh Sangbad Sangstha (BSS)",
+    "language": "en",
+    "expected_verdict": "false",
+    "category": "news",
+    "source": "google_news_bd",
+    "source_file": "google_news_bd_22b7b1e8bd.json"
+  },
+  {
+    "id": "v2_06918019",
+    "text": "ভারতে মুসলিম প্রতিবন্ধী বৃদ্ধকে লাথি মারার দৃশ্য দাবিতে সাজানো ভিডিও প্রচার",
+    "language": "bn",
+    "expected_verdict": "misleading",
+    "category": "news",
+    "source": "daily_star",
+    "source_file": "rumorscanner_07a3b792c1.json"
+  },
+  {
+    "id": "v2_77c47fb4",
+    "text": "ইরানের দক্ষিণে 'আত্মরক্ষামূলক' হামলা চালানোর দাবি যুক্তরাষ্ট্রের",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "bbc_bangla",
+    "source_file": "bbc_bangla_5ca1addecd.json"
+  },
+  {
+    "id": "v2_da04beee",
+    "text": "In praise of Mymensingh’s Bangla folk ballads",
+    "language": "en",
+    "expected_verdict": "unverified",
+    "category": "ai_generated_content",
+    "source": "daily_star",
+    "source_file": "daily_star_afea5c0c2e.json"
+  },
+  {
+    "id": "v2_f854c0b4",
+    "text": "False internet shutdown claims spread before Bangladesh's landmark vote - AFP Fact Check",
+    "language": "en",
+    "expected_verdict": "false",
+    "category": "ai_generated_content",
+    "source": "google_news_bd",
+    "source_file": "google_news_bd_30bca9d118.json"
+  },
+  {
+    "id": "v2_09faaa09",
+    "text": "ভারতে বোরকা পরার অপরাধে এক নারীকে মারধরের দৃশ্য দাবিতে কক্সবাজারের ভিন্ন ঘটনার ভিডিও প্রচার",
+    "language": "bn",
+    "expected_verdict": "misleading",
+    "category": "news",
+    "source": "daily_star",
+    "source_file": "rumorscanner_07b1426ddc.json"
+  },
+  {
+    "id": "v2_ac0b296e",
+    "text": "হজের সময় পালন করা ৮টি রীতির পেছনে যে ইতিহাস",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "bbc_bangla",
+    "source_file": "bbc_bangla_5de3d35e35.json"
+  },
+  {
+    "id": "v2_d929dd26",
+    "text": "André Béteille: A sociologist Bangladesh should read",
+    "language": "en",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "daily_star",
+    "source_file": "daily_star_d505b53dc2.json"
+  },
+  {
+    "id": "v2_320f42b7",
+    "text": "Bangladesh Targeted: 140 Disinformation Across 73 Indian News Outlets - Rumor Scanner",
+    "language": "en",
+    "expected_verdict": "false",
+    "category": "news",
+    "source": "google_news_bd",
+    "source_file": "google_news_bd_4157a8dc4b.json"
+  },
+  {
+    "id": "v2_ff01122e",
+    "text": "আ.লীগের কার্যক্রম নিষেধাজ্ঞা প্রত্যাহারের ঘোষণা দেননি স্বরাষ্ট্রমন্ত্রী",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "politics",
+    "source": "daily_star",
+    "source_file": "rumorscanner_0b724b10b8.json"
+  },
+  {
+    "id": "v2_fc043bd8",
+    "text": "একই পশু দিয়ে আকিকা ও কোরবানি দেওয়া যাবে?",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "bbc_bangla",
+    "source_file": "bbc_bangla_610fd7910b.json"
+  },
+  {
+    "id": "v2_03989c81",
+    "text": "Why Bangladesh must pivot to renewable energy now",
+    "language": "en",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "daily_star",
+    "source_file": "daily_star_f125c91fff.json"
+  },
+  {
+    "id": "v2_8abd287b",
+    "text": "Fact Check: Hindu holy man beaten up in Bangladesh? No, this video is from Punjab - indiatoday.in",
+    "language": "en",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "google_news_bd",
+    "source_file": "google_news_bd_4703923c8f.json"
+  },
+  {
+    "id": "v2_c614ff71",
+    "text": "পিলারে গ্রাফিতি এঁকে বিএনপিকে গালি দেওয়ার ভাইরাল ছবিটি সম্পাদিত",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "daily_star",
+    "source_file": "rumorscanner_0dd9a11fda.json"
+  },
+  {
+    "id": "v2_d86fa35f",
+    "text": "মুসলিমদের কাছে জমজম কূপের পানি কেন এতো গুরুত্বপূর্ণ ?",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "bbc_bangla",
+    "source_file": "bbc_bangla_8145632dd9.json"
+  },
+  {
+    "id": "v2_f9f54438",
+    "text": "Video Of Decapitated Gandhi Statue In West Bengal Peddled As Bangladesh | BOOM - BOOM Fact Check",
+    "language": "en",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "google_news_bd",
+    "source_file": "google_news_bd_53ca97f4b7.json"
+  },
+  {
+    "id": "v2_def5067a",
+    "text": "আবিদ বিয়ে করেছেন দাবিতে এআই ছবি ব্যবহার করে যমুনা টিভির নামে ভুয়া ফটোকার্ড প্রচার",
+    "language": "bn",
+    "expected_verdict": "false",
+    "category": "ai_generated_content",
+    "source": "rumorscanner",
+    "source_file": "rumorscanner_10d0655690.json"
+  },
+  {
+    "id": "v2_f6355452",
+    "text": "ব্রাজিলের 'হেক্সা স্বপ্ন' কি এবার পূরণ হবে যুক্তরাষ্ট্রে?",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "bbc_bangla",
+    "source_file": "bbc_bangla_9640e2f491.json"
+  },
+  {
+    "id": "v2_f11cec98",
+    "text": "Bangladeshi Hindu Man Asking for Help Amid Unrest? No, Video Is AI-Generated - The Quint",
+    "language": "en",
+    "expected_verdict": "unverified",
+    "category": "ai_generated_content",
+    "source": "google_news_bd",
+    "source_file": "google_news_bd_56e20841cb.json"
+  },
+  {
+    "id": "v2_47daad8b",
+    "text": "ঢাকার রাস্তায় শেখ হাসিনার গ্রাফিতি দাবিতে এআই নির্মিত ছবি প্রচার",
+    "language": "bn",
+    "expected_verdict": "false",
+    "category": "ai_generated_content",
+    "source": "daily_star",
+    "source_file": "rumorscanner_1565f48d2d.json"
+  },
+  {
+    "id": "v2_9b01edef",
+    "text": "বলিউডে নিষেধাজ্ঞার মুখে 'ধুরন্ধর' খ্যাত রণবীর সিং, কেন বিতর্কে 'ডন থ্রি'?",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "bbc_bangla",
+    "source_file": "bbc_bangla_d1a1661cc2.json"
+  },
+  {
+    "id": "v2_e77a4244",
+    "text": "Rumor scanner identifies SSC question leak claim as false - Bangladesh Sangbad Sangstha (BSS)",
+    "language": "en",
+    "expected_verdict": "false",
+    "category": "ai_generated_content",
+    "source": "google_news_bd",
+    "source_file": "google_news_bd_59a6caedb9.json"
+  },
+  {
+    "id": "v2_b7659b2d",
+    "text": "ময়মনসিংহে শিশু ধর্ষণের দাবিতে ভারতের বিহারের পুরোনো ভিডিও প্রচার",
+    "language": "bn",
+    "expected_verdict": "misleading",
+    "category": "fact_check",
+    "source": "rumorscanner",
+    "source_file": "rumorscanner_15c3b3a3ff.json"
+  },
+  {
+    "id": "v2_2ccae8b8",
+    "text": "ঋণ করে বা ঋণগ্রস্ত ব্যক্তির কোরবানি নিয়ে ধর্মীয় বিধানে কী বলা আছে?",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "bbc_bangla",
+    "source_file": "bbc_bangla_d75d3355b3.json"
+  },
+  {
+    "id": "v2_d6ecece8",
+    "text": "Bangladesh protest video falsely shared as Indian election violence - AFP Fact Check",
+    "language": "en",
+    "expected_verdict": "false",
+    "category": "news",
+    "source": "google_news_bd",
+    "source_file": "google_news_bd_623c23b690.json"
+  },
+  {
+    "id": "v2_05e0d9bf",
+    "text": "“ডিমের কুসুমের মতো বাংলাদেশ জামায়াতের কাছে নিরাপদ”- মোনামীর নামে ভুয়া মন্তব্য",
+    "language": "bn",
+    "expected_verdict": "false",
+    "category": "news",
+    "source": "daily_star",
+    "source_file": "rumorscanner_1637f09bde.json"
+  },
+  {
+    "id": "v2_c16cfc94",
+    "text": "প্রাচীন যেসব হজপথ দিয়ে দূর-দূরান্তের হাজিরা মক্কায় এসে সমবেত হতেন",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "bbc_bangla",
+    "source_file": "bbc_bangla_e3f23716bd.json"
+  },
+  {
+    "id": "v2_ba3eca3d",
+    "text": "Does This Video Show a Bangladeshi Thief Stuck in a Window in Assam? No! - The Quint",
+    "language": "en",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "google_news_bd",
+    "source_file": "google_news_bd_6b2cb80dc9.json"
+  },
+  {
+    "id": "v2_d22aa752",
+    "text": "নরসিংদীতে আ.লীগের মিছিল দাবিতে ছাত্রদলের পুরোনো মিছিলের ভিডিও প্রচার",
+    "language": "bn",
+    "expected_verdict": "misleading",
+    "category": "news",
+    "source": "daily_star",
+    "source_file": "rumorscanner_17d5b8ca90.json"
+  },
+  {
+    "id": "v2_b7f568ab",
+    "text": "এআই ক্যামেরায় মামলার কথা জানিয়ে ফোনে বার্তা, কী করবেন?",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "ai_generated_content",
+    "source": "bbc_bangla",
+    "source_file": "bbc_bangla_eace0994be.json"
+  },
+  {
+    "id": "v2_909c7f15",
+    "text": "Rumor Scanner identifies viral fake photocard targeting political sentiment - Bangladesh Sangbad Sangstha (BSS)",
+    "language": "en",
+    "expected_verdict": "false",
+    "category": "news",
+    "source": "google_news_bd",
+    "source_file": "google_news_bd_6ca7429835.json"
+  },
+  {
+    "id": "v2_53917f35",
+    "text": "গণভবন থেকে লাগেজ লুটের এই ছবিটি কারিনা কায়সারের নয়",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "daily_star",
+    "source_file": "rumorscanner_1944702d8f.json"
+  },
+  {
+    "id": "v2_b1983f35",
+    "text": "পত্রিকা: 'খলিলুরের নজিরবিহীন ছুটির পরিকল্পনা নিয়ে বিস্ময়'",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "bbc_bangla",
+    "source_file": "bbc_bangla_eb1ce4a7fd.json"
+  },
+  {
+    "id": "v2_10119611",
+    "text": "Baseless claims ex-US envoy visited Bangladesh share forged document - AFP Fact Check",
+    "language": "en",
+    "expected_verdict": "unverified",
+    "category": "ai_generated_content",
+    "source": "google_news_bd",
+    "source_file": "google_news_bd_78d44a0a37.json"
+  },
+  {
+    "id": "v2_1ebce9dc",
+    "text": "গাজায় নিহত শিশুদের মৃত্যুর সাথে হামে শিশু মৃত্যুর তুলনা করে ভাইরাল মন্তব্যটি শহিদুল আলম করেননি",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "daily_star",
+    "source_file": "rumorscanner_194eaefac7.json"
+  },
+  {
+    "id": "v2_a718818e",
+    "text": "Old Clip From March 2025 Viral as Hindu Youths Brutally Attacked in Bangladesh - The Quint",
+    "language": "en",
+    "expected_verdict": "unverified",
+    "category": "news",
+    "source": "google_news_bd",
+    "source_file": "google_news_bd_7fafef3e12.json"
+  }
+]

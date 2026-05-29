@@ -1,0 +1,86 @@
+[
+  {
+    "id": "c01",
+    "text": "বাংলাদেশের রাজধানী ঢাকা।",
+    "language": "bn",
+    "expected_verdict": "true",
+    "category": "general_fact"
+  },
+  {
+    "id": "c02",
+    "text": "The capital of Bangladesh is Chittagong.",
+    "language": "en",
+    "expected_verdict": "false",
+    "category": "general_fact"
+  },
+  {
+    "id": "c03",
+    "text": "সূর্য পশ্চিম দিক থেকে উদয় হয়।",
+    "language": "bn",
+    "expected_verdict": "false",
+    "category": "general_fact"
+  },
+  {
+    "id": "c04",
+    "text": "বাংলাদেশ ১৯৭১ সালে স্বাধীনতা লাভ করে।",
+    "language": "bn",
+    "expected_verdict": "true",
+    "category": "history"
+  },
+  {
+    "id": "c05",
+    "text": "Water boils at 100 degrees Celsius at sea level.",
+    "language": "en",
+    "expected_verdict": "true",
+    "category": "science"
+  },
+  {
+    "id": "c06",
+    "text": "The Great Wall of China is visible from the Moon with naked eyes.",
+    "language": "en",
+    "expected_verdict": "false",
+    "category": "myth"
+  },
+  {
+    "id": "c07",
+    "text": "এই দাবির কোনো নির্ভরযোগ্য উৎস এখনো পাওয়া যায়নি।",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "uncertain"
+  },
+  {
+    "id": "c08",
+    "text": "COVID-19 vaccine contains microchips to track people.",
+    "language": "en",
+    "expected_verdict": "false",
+    "category": "health_misinformation"
+  },
+  {
+    "id": "c09",
+    "text": "একটি পুরনো ছবিকে নতুন ঘটনার ছবি হিসেবে ছড়ানো হচ্ছে।",
+    "language": "bn",
+    "expected_verdict": "misleading",
+    "category": "misleading_context"
+  },
+  {
+    "id": "c10",
+    "text": "Earth is the third planet from the Sun.",
+    "language": "en",
+    "expected_verdict": "true",
+    "category": "science"
+  },
+  {
+    "id": "c11",
+    "text": "বাংলাদেশের সরকারি মুদ্রার নাম টাকা।",
+    "language": "bn",
+    "expected_verdict": "true",
+    "category": "general_fact"
+  },
+  {
+    "id": "c12",
+    "text": "2 + 2 equals 5.",
+    "language": "en",
+    "expected_verdict": "false",
+    "category": "general_fact"
+  }
+]

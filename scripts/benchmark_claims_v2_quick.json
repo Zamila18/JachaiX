@@ -1,0 +1,56 @@
+[
+  {
+    "id": "v2_f5f0029c",
+    "text": "ম্যাচশেষে রিজওয়ানকে নিয়ে লিটনের বক্তব্য দাবিতে ভারতীয় গণমাধ্যমে বানোয়াট তথ্য প্রচার",
+    "language": "bn",
+    "expected_verdict": "false",
+    "category": "news",
+    "source": "daily_star",
+    "source_file": "rumorscanner_005378360d.json"
+  },
+  {
+    "id": "v2_4eb340f5",
+    "text": "রামিসা হত্যাকাণ্ড নিয়ে অভিনেতা দেবের নামে ভুয়া মন্তব্য প্রচার",
+    "language": "bn",
+    "expected_verdict": "false",
+    "category": "fact_check",
+    "source": "rumorscanner",
+    "source_file": "rumorscanner_04235b881c.json"
+  },
+  {
+    "id": "v2_b80c2a92",
+    "text": "জুলাই গণঅভ্যুত্থান নিয়ে মিজানুর রহমান আজহারীর নামে ভুয়া মন্তব্য প্রচার",
+    "language": "bn",
+    "expected_verdict": "false",
+    "category": "news",
+    "source": "daily_star",
+    "source_file": "rumorscanner_0531d80ea5.json"
+  },
+  {
+    "id": "v2_06918019",
+    "text": "ভারতে মুসলিম প্রতিবন্ধী বৃদ্ধকে লাথি মারার দৃশ্য দাবিতে সাজানো ভিডিও প্রচার",
+    "language": "bn",
+    "expected_verdict": "misleading",
+    "category": "news",
+    "source": "daily_star",
+    "source_file": "rumorscanner_07a3b792c1.json"
+  },
+  {
+    "id": "v2_09faaa09",
+    "text": "ভারতে বোরকা পরার অপরাধে এক নারীকে মারধরের দৃশ্য দাবিতে কক্সবাজারের ভিন্ন ঘটনার ভিডিও প্রচার",
+    "language": "bn",
+    "expected_verdict": "misleading",
+    "category": "news",
+    "source": "daily_star",
+    "source_file": "rumorscanner_07b1426ddc.json"
+  },
+  {
+    "id": "v2_ff01122e",
+    "text": "আ.লীগের কার্যক্রম নিষেধাজ্ঞা প্রত্যাহারের ঘোষণা দেননি স্বরাষ্ট্রমন্ত্রী",
+    "language": "bn",
+    "expected_verdict": "unverified",
+    "category": "politics",
+    "source": "daily_star",
+    "source_file": "rumorscanner_0b724b10b8.json"
+  }
+]

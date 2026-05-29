@@ -1,0 +1,691 @@
+{
+  "base_url": "http://127.0.0.1:8080/api/v1",
+  "input": "e:\\jachaix\\scripts\\benchmark_claims_multilingual_slice.json",
+  "generated_at_unix": 1779988478,
+  "metrics": {
+    "samples_total": 10,
+    "samples_scored": 10,
+    "accuracy": 0.3,
+    "macro_precision": 0.0938,
+    "macro_recall": 0.1875,
+    "macro_f1": 0.125,
+    "per_class": {
+      "true": {
+        "precision": 0.375,
+        "recall": 0.75,
+        "f1": 0.5,
+        "support": 4
+      },
+      "false": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 5
+      },
+      "misleading": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 1
+      },
+      "unverified": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      }
+    },
+    "confusion_matrix": {
+      "true": {
+        "true": 3,
+        "false": 0,
+        "misleading": 1,
+        "unverified": 0
+      },
+      "false": {
+        "true": 5,
+        "false": 0,
+        "misleading": 0,
+        "unverified": 0
+      },
+      "misleading": {
+        "true": 0,
+        "false": 1,
+        "misleading": 0,
+        "unverified": 0
+      },
+      "unverified": {
+        "true": 0,
+        "false": 0,
+        "misleading": 0,
+        "unverified": 0
+      }
+    },
+    "by_language": {
+      "en": {
+        "samples_total": 2,
+        "samples_scored": 2,
+        "accuracy": 0.5,
+        "macro_precision": 0.125,
+        "macro_recall": 0.25,
+        "macro_f1": 0.1667,
+        "per_class": {
+          "true": {
+            "precision": 0.5,
+            "recall": 1.0,
+            "f1": 0.6667,
+            "support": 1
+          },
+          "false": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 1
+          },
+          "misleading": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "unverified": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "true": {
+            "true": 1,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "false": {
+            "true": 1,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "misleading": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "unverified": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          }
+        }
+      },
+      "international": {
+        "samples_total": 8,
+        "samples_scored": 8,
+        "accuracy": 0.25,
+        "macro_precision": 0.0833,
+        "macro_recall": 0.1667,
+        "macro_f1": 0.1111,
+        "per_class": {
+          "true": {
+            "precision": 0.3333,
+            "recall": 0.6667,
+            "f1": 0.4444,
+            "support": 3
+          },
+          "false": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 4
+          },
+          "misleading": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 1
+          },
+          "unverified": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "true": {
+            "true": 2,
+            "false": 0,
+            "misleading": 1,
+            "unverified": 0
+          },
+          "false": {
+            "true": 4,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "misleading": {
+            "true": 0,
+            "false": 1,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "unverified": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          }
+        }
+      }
+    },
+    "by_category": {
+      "international_climate": {
+        "samples_total": 2,
+        "samples_scored": 2,
+        "accuracy": 0.0,
+        "macro_precision": 0.0,
+        "macro_recall": 0.0,
+        "macro_f1": 0.0,
+        "per_class": {
+          "true": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 1
+          },
+          "false": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 1
+          },
+          "misleading": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "unverified": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "true": {
+            "true": 0,
+            "false": 0,
+            "misleading": 1,
+            "unverified": 0
+          },
+          "false": {
+            "true": 1,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "misleading": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "unverified": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          }
+        }
+      },
+      "international_fact_check": {
+        "samples_total": 1,
+        "samples_scored": 1,
+        "accuracy": 0.0,
+        "macro_precision": 0.0,
+        "macro_recall": 0.0,
+        "macro_f1": 0.0,
+        "per_class": {
+          "true": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "false": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "misleading": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 1
+          },
+          "unverified": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "true": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "false": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "misleading": {
+            "true": 0,
+            "false": 1,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "unverified": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          }
+        }
+      },
+      "international_health": {
+        "samples_total": 2,
+        "samples_scored": 2,
+        "accuracy": 0.5,
+        "macro_precision": 0.125,
+        "macro_recall": 0.25,
+        "macro_f1": 0.1667,
+        "per_class": {
+          "true": {
+            "precision": 0.5,
+            "recall": 1.0,
+            "f1": 0.6667,
+            "support": 1
+          },
+          "false": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 1
+          },
+          "misleading": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "unverified": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "true": {
+            "true": 1,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "false": {
+            "true": 1,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "misleading": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "unverified": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          }
+        }
+      },
+      "international_myth": {
+        "samples_total": 1,
+        "samples_scored": 1,
+        "accuracy": 0.0,
+        "macro_precision": 0.0,
+        "macro_recall": 0.0,
+        "macro_f1": 0.0,
+        "per_class": {
+          "true": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "false": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 1
+          },
+          "misleading": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "unverified": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "true": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "false": {
+            "true": 1,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "misleading": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "unverified": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          }
+        }
+      },
+      "international_news": {
+        "samples_total": 2,
+        "samples_scored": 2,
+        "accuracy": 0.5,
+        "macro_precision": 0.125,
+        "macro_recall": 0.25,
+        "macro_f1": 0.1667,
+        "per_class": {
+          "true": {
+            "precision": 0.5,
+            "recall": 1.0,
+            "f1": 0.6667,
+            "support": 1
+          },
+          "false": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 1
+          },
+          "misleading": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "unverified": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "true": {
+            "true": 1,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "false": {
+            "true": 1,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "misleading": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "unverified": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          }
+        }
+      },
+      "international_science": {
+        "samples_total": 2,
+        "samples_scored": 2,
+        "accuracy": 0.5,
+        "macro_precision": 0.125,
+        "macro_recall": 0.25,
+        "macro_f1": 0.1667,
+        "per_class": {
+          "true": {
+            "precision": 0.5,
+            "recall": 1.0,
+            "f1": 0.6667,
+            "support": 1
+          },
+          "false": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 1
+          },
+          "misleading": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          },
+          "unverified": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 0
+          }
+        },
+        "confusion_matrix": {
+          "true": {
+            "true": 1,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "false": {
+            "true": 1,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "misleading": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          },
+          "unverified": {
+            "true": 0,
+            "false": 0,
+            "misleading": 0,
+            "unverified": 0
+          }
+        }
+      }
+    }
+  },
+  "rows": [
+    {
+      "id": "m01",
+      "text": "NASA confirmed the presence of water on sunlit parts of the Moon.",
+      "language": "international",
+      "expected_verdict": "true",
+      "category": "international_science",
+      "claim_id": 57,
+      "status": "completed",
+      "predicted_verdict": "true",
+      "predicted_confidence": 0.8487,
+      "error": null,
+      "explanation": "The claim is true based on evidence and facts provided by the Associated Press fact-checking team.",
+      "sources_count": 2
+    },
+    {
+      "id": "m02",
+      "text": "NASA said the Moon has no detectable water at all.",
+      "language": "international",
+      "expected_verdict": "false",
+      "category": "international_science",
+      "claim_id": 58,
+      "status": "completed",
+      "predicted_verdict": "true",
+      "predicted_confidence": 0.7497,
+      "error": null,
+      "explanation": "The claim is about an international topic and should be judged using international evidence too.",
+      "sources_count": 2
+    },
+    {
+      "id": "m03",
+      "text": "WHO says COVID-19 vaccines do not contain microchips.",
+      "language": "international",
+      "expected_verdict": "true",
+      "category": "international_health",
+      "claim_id": 59,
+      "status": "completed",
+      "predicted_verdict": "true",
+      "predicted_confidence": 0.6513,
+      "error": null,
+      "explanation": "Evidence from the World Health Organization confirms that COVID-19 vaccines do not contain microchips or tracking devices.",
+      "sources_count": 1
+    },
+    {
+      "id": "m04",
+      "text": "COVID-19 vaccines contain microchips to track people.",
+      "language": "international",
+      "expected_verdict": "false",
+      "category": "international_health",
+      "claim_id": 60,
+      "status": "completed",
+      "predicted_verdict": "true",
+      "predicted_confidence": 0.7873,
+      "error": null,
+      "explanation": "Weighted evidence from trusted sources supports the claim, so the system treats it as true with conservative confidence.",
+      "sources_count": 3
+    },
+    {
+      "id": "m05",
+      "text": "The Great Wall of China is visible from the Moon with the naked eye.",
+      "language": "international",
+      "expected_verdict": "false",
+      "category": "international_myth",
+      "claim_id": 61,
+      "status": "completed",
+      "predicted_verdict": "true",
+      "predicted_confidence": 0.7497,
+      "error": null,
+      "explanation": "The claim is based on a fact-checking article from Reuters, which confirms that the Great Wall of China cannot be seen from the Moon with the naked eye. This evidence is considered credible and reliable by experts in space exploration.",
+      "sources_count": 1
+    },
+    {
+      "id": "m06",
+      "text": "An old protest video was reshared as if it showed current Eid chaos in Dhaka.",
+      "language": "international",
+      "expected_verdict": "misleading",
+      "category": "international_fact_check",
+      "claim_id": 62,
+      "status": "completed",
+      "predicted_verdict": "false",
+      "predicted_confidence": 0.9337,
+      "error": null,
+      "explanation": "Weighted evidence from trusted sources leans against the claim, so the system treats it as false or misleading.",
+      "sources_count": 5
+    },
+    {
+      "id": "m07",
+      "text": "Reuters reported that an Illinois chemical tank explosion killed one person and left nine missing.",
+      "language": "en",
+      "expected_verdict": "true",
+      "category": "international_news",
+      "claim_id": 63,
+      "status": "completed",
+      "predicted_verdict": "true",
+      "predicted_confidence": 0.6473,
+      "error": null,
+      "explanation": "Reuters reported that an explosion involving a chemical tank in Illinois left one person dead and nine missing, prompting a major emergency response. Local officials said firefighters, rescue teams, and environmental crews were deployed while authorities investigated the cause of the blast.",
+      "sources_count": 1
+    },
+    {
+      "id": "m08",
+      "text": "Reuters reported that no one was killed or missing after the Illinois chemical tank explosion.",
+      "language": "en",
+      "expected_verdict": "false",
+      "category": "international_news",
+      "claim_id": 64,
+      "status": "completed",
+      "predicted_verdict": "true",
+      "predicted_confidence": 0.6473,
+      "error": null,
+      "explanation": "Reuters reported that an explosion involving a chemical tank in Illinois left one person dead and nine missing, prompting a major emergency response. This information is widely available and credible.",
+      "sources_count": 1
+    },
+    {
+      "id": "m09",
+      "text": "UN News warned that least developed countries face disproportionate climate losses.",
+      "language": "international",
+      "expected_verdict": "true",
+      "category": "international_climate",
+      "claim_id": 65,
+      "status": "completed",
+      "predicted_verdict": "misleading",
+      "predicted_confidence": 0.8265,
+      "error": null,
+      "explanation": "Evidence retrieved from trusted sources contains contradiction indicators against this claim, so the claim is marked as false/misleading with conservative confidence.",
+      "sources_count": 4
+    },
+    {
+      "id": "m10",
+      "text": "The UN said climate change no longer poses a major risk to least developed countries.",
+      "language": "international",
+      "expected_verdict": "false",
+      "category": "international_climate",
+      "claim_id": 66,
+      "status": "completed",
+      "predicted_verdict": "true",
+      "predicted_confidence": 0.7347,
+      "error": null,
+      "explanation": "The claim is supported by evidence from reliable sources such as the UN News report and the Daily Star newspaper article on Bangladesh's energy crisis.",
+      "sources_count": 2
+    }
+  ]
+}

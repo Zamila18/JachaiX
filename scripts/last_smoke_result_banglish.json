@@ -1,0 +1,80 @@
+﻿{
+    "generated_at":  "2026-05-29T00:47:46",
+    "base_url":  "http://127.0.0.1:8080/api/v1",
+    "input":  {
+                  "text":  "ramishar hottakande ki ashamir shami jorito chilo?",
+                  "language":  "auto"
+              },
+    "claim_id":  68,
+    "final_status":  "completed",
+    "result":  {
+                   "id":  68,
+                   "status":  "completed",
+                   "input_type":  "text",
+                   "extracted_text":  "ramishar hottakande ki ashamir shami jorito chilo?",
+                   "claim_text":  "রামিশার হত্যাকাণ্ডে কি আসামির স্বামী জড়িত ছিল?",
+                   "verdict":  "false",
+                   "confidence_score":  0.9295,
+                   "trust_label":  "Trustworthy",
+                   "trust_breakdown":  {
+                                           "coverage":  1,
+                                           "lang_clarity":  1,
+                                           "llm_confidence":  0.77,
+                                           "verdict_weight":  0.9,
+                                           "avg_reliability":  0.87,
+                                           "evidence_strength":  1
+                                       },
+                   "explanation":  "Evidence retrieved from trusted sources contains contradiction indicators against this claim, so the claim is marked as false/misleading with conservative confidence.",
+                   "sources":  [
+                                   {
+                                       "url":  "https://rumorscanner.com/fact-check/salahuddin-ahmed-speech-ramisa-edited-ittefaq-photocard/207587",
+                                       "score":  -2.6316,
+                                       "title":  "রামিসা হত্যা–ধর্ষণকে ‘বিচ্ছিন্ন ঘটনা’ বলেননি স্বরাষ্ট্রমন্ত্রী, ইত্তেফাকের নামে সম্পাদিত ফটোকার্ড",
+                                       "source":  "rumorscanner",
+                                       "reliability_score":  0.95
+                                   },
+                                   {
+                                       "url":  "https://www.bbc.com/bengali/articles/cd11r0g4564o?at_medium=RSS\u0026at_campaign=rss",
+                                       "score":  -3.8639,
+                                       "title":  "মুসলিমদের কাছে জমজম কূপের পানি কেন এতো গুরুত্বপূর্ণ ?",
+                                       "source":  "bbc_bangla",
+                                       "reliability_score":  0.9
+                                   },
+                                   {
+                                       "url":  "https://rumorscanner.com/fact-check/nahid-islam-fake-claim-mashrafe-house-burning/206488",
+                                       "score":  -5.2605,
+                                       "title":  "মাশরাফির বাড়ি পোড়ানো প্রসঙ্গে নাহিদ ইসলামকে উদ্ধৃত করে প্রচারিত মন্তব্যটি ভুয়া",
+                                       "source":  "daily_star",
+                                       "reliability_score":  0.8
+                                   },
+                                   {
+                                       "url":  "https://www.bbc.com/bengali/articles/c4n94jv8gn5o?at_medium=RSS\u0026at_campaign=rss",
+                                       "score":  -5.4631,
+                                       "title":  "ইসলাম প্রচারের পর কীভাবে কোরবানি দেয়া চালু হয়েছিল",
+                                       "source":  "bbc_bangla",
+                                       "reliability_score":  0.9
+                                   },
+                                   {
+                                       "url":  "https://rumorscanner.com/fact-check/azmeri-haque-badhon-fake-comment-claim/206413",
+                                       "score":  -6.1456,
+                                       "title":  "জুলাই আন্দোলনে নিহতের সাথে হামে মৃত্যুর তুলনা করে ভাইরাল এই মন্তব্যটি অভিনেত্রী বাঁধনের নয়",
+                                       "source":  "daily_star",
+                                       "reliability_score":  0.8
+                                   }
+                               ],
+                   "language":  "banglish",
+                   "normalization":  {
+                                         "id":  "claim_68",
+                                         "language":  "banglish",
+                                         "modality":  "text",
+                                         "raw_text":  "ramishar hottakande ki ashamir shami jorito chilo?",
+                                         "normalized_text":  "রামিশার হত্যাকাণ্ডে কি আসামির স্বামী জড়িত ছিল?",
+                                         "source_metadata":  {
+                                                                 "parser":  "text_input",
+                                                                 "file_path":  null
+                                                             },
+                                         "extraction_confidence":  1
+                                     },
+                   "created_at":  "2026-05-28T18:46:35.000000Z"
+               }
+}

@@ -1,8 +1,13 @@
 """
 JachaiX Chunker — reads corpus/raw/, chunks articles, embeds, stores in Qdrant.
-Run: E:\Python310\python.exe run_chunker.py
+Run: E:\Python310\python.exe run_chunker.py --pattern "*.json"
 """
-import json, uuid, time, re
+import argparse
+import hashlib
+import json
+import re
+import time
+import uuid
 from pathlib import Path
 import requests
 
@@ -18,13 +23,12 @@ CHUNK_MIN_CHARS = 200
 
 # ── Step 1: Create Qdrant collection ─────────────────────────────────────────
 
-def ensure_collection():
+def ensure_collection(reset: bool = False):
     r = requests.get(f"{QDRANT_URL}/collections/{COLLECTION}", timeout=5)
     if r.status_code == 200:
         count = r.json().get("result", {}).get("vectors_count", 0)
         print(f"Collection '{COLLECTION}' exists — {count} vectors already stored.")
-        ans = input("Delete and re-index from scratch? [y/N]: ").strip().lower()
-        if ans == "y":
+        if reset:
             requests.delete(f"{QDRANT_URL}/collections/{COLLECTION}", timeout=10)
             print("Deleted.")
         else:
@@ -104,18 +108,42 @@ def upload_to_qdrant(chunk_id: str, vector: list, payload: dict) -> bool:
             f"{QDRANT_URL}/collections/{COLLECTION}/points",
             json=body, timeout=15
         )
-        return r.status_code in (200, 201)
+        if r.status_code not in (200, 201):
+            print(f"    [QDRANT ERROR] {r.status_code} {r.text[:200]}")
+            return False
+        return True
     except Exception as e:
         print(f"    [QDRANT ERROR] {e}")
         return False
 
 
+def build_chunk_id(source: str, url: str, title: str, chunk_index: int, chunk_text: str) -> str:
+    stable_key = "||".join([
+        source.strip().lower(),
+        url.strip().lower(),
+        title.strip().lower(),
+        str(chunk_index),
+        chunk_text.strip().lower(),
+    ])
+    hashed_key = hashlib.sha1(stable_key.encode("utf-8")).hexdigest()
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, hashed_key))
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    ensure_collection()
+    parser = argparse.ArgumentParser(description="Chunk raw articles and upsert them into Qdrant")
+    parser.add_argument("--pattern", default="*.json", help="Glob pattern under corpus/raw to ingest")
+    parser.add_argument("--reset", action="store_true", help="Delete and recreate the Qdrant collection before ingest")
+    args = parser.parse_args()
 
-    all_files = sorted(RAW_DIR.glob("*.json"))
+    ensure_collection(reset=args.reset)
+
+    all_files = sorted(RAW_DIR.glob(args.pattern))
+    if not all_files:
+        print(f"No files matched pattern: {args.pattern}")
+        return
+
     print(f"\nProcessing {len(all_files)} articles...\n")
 
     total_uploaded = 0
@@ -162,7 +190,8 @@ def main():
                 "reliability_score":    reliability,
             }
 
-            ok = upload_to_qdrant(str(uuid.uuid4()), vector, payload)
+            chunk_id = build_chunk_id(source, url, title, chunk_idx, chunk_text)
+            ok = upload_to_qdrant(chunk_id, vector, payload)
             if ok:
                 total_uploaded += 1
             else:

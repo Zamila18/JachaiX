@@ -12,11 +12,14 @@ class Claim extends Model
         'raw_input',
         'file_path',
         'extracted_text',
+        'normalization_data',
         'claim_text',
         'language',
         'status',
         'verdict',
         'confidence_score',
+        'trust_label',
+        'trust_breakdown',
         'evidence',
         'sources',
         'explanation',
@@ -24,6 +27,8 @@ class Claim extends Model
     ];
 
     protected $casts = [
+        'normalization_data' => 'array',
+        'trust_breakdown' => 'array',
         'evidence' => 'array',
         'sources'  => 'array',
     ];
