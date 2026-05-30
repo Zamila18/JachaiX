@@ -205,7 +205,7 @@ export function WorkspacePageContent() {
           <p className="muted">{tx({ en: "Roadmap modules:", bn: "রোডম্যাপ মডিউল:" })}</p>
           <div className="future-list">
             {FUTURE_ITEMS.map((item) => (
-              <div key={item.label} className="future-item">
+              <div key={item.label.en} className="future-item">
                 <div>
                   <p>{tx(item.label)}</p>
                   <small>{tx(item.summary)}</small>
