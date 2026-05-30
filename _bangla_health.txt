@@ -1,0 +1,2 @@
+﻿API_ERROR=Unable to connect to the remote server
+EMBEDDER_ERROR=The underlying connection was closed: The connection was closed unexpectedly.

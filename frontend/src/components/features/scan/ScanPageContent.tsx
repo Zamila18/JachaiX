@@ -8,20 +8,22 @@ import {
   submitPdfClaim,
   submitHumanReview,
 } from "@/lib/api";
+import { useLanguage } from "@/lib/i18n";
 import { ClaimResult } from "@/lib/types";
 
 type ScanMode = "image" | "pdf";
 type Phase = "idle" | "submitting" | "processing" | "completed" | "failed";
 
-function phaseText(phase: Phase) {
-  if (phase === "idle") return "Ready";
-  if (phase === "submitting") return "Uploading";
-  if (phase === "processing") return "Analyzing";
-  if (phase === "completed") return "Completed";
-  return "Failed";
+function phaseText(phase: Phase, tx: (value: string | { en: string; bn: string }) => string) {
+  if (phase === "idle") return tx({ en: "Ready", bn: "প্রস্তুত" });
+  if (phase === "submitting") return tx({ en: "Uploading", bn: "আপলোড হচ্ছে" });
+  if (phase === "processing") return tx({ en: "Analyzing", bn: "বিশ্লেষণ হচ্ছে" });
+  if (phase === "completed") return tx({ en: "Completed", bn: "সম্পন্ন" });
+  return tx({ en: "Failed", bn: "ব্যর্থ" });
 }
 
 export function ScanPageContent() {
+  const { tx } = useLanguage();
   const [mode, setMode] = useState<ScanMode>("image");
   const [language, setLanguage] = useState("auto");
   const [file, setFile] = useState<File | null>(null);
@@ -58,7 +60,7 @@ export function ScanPageContent() {
     setResult(null);
 
     if (!file) {
-      setError("Please choose a file before submitting.");
+      setError(tx({ en: "Please choose a file before submitting.", bn: "জমা দেওয়ার আগে একটি ফাইল নির্বাচন করুন।" }));
       return;
     }
 
@@ -100,10 +102,10 @@ export function ScanPageContent() {
       }
 
       setPhase("failed");
-      setError("Timeout while waiting for result. The backend may still complete shortly.");
+      setError(tx({ en: "Timeout while waiting for result. The backend may still complete shortly.", bn: "ফলাফলের জন্য অপেক্ষায় টাইমআউট হয়েছে। ব্যাকএন্ড অল্প সময়ের মধ্যে সম্পন্ন করতে পারে।" }));
     } catch (scanError) {
       setPhase("failed");
-      setError(scanError instanceof Error ? scanError.message : "Unexpected scan error");
+      setError(scanError instanceof Error ? scanError.message : tx({ en: "Unexpected scan error", bn: "অপ্রত্যাশিত স্ক্যান ত্রুটি" }));
     }
   }
 
@@ -119,7 +121,7 @@ export function ScanPageContent() {
       );
       setReviewSent(response.message);
     } catch (sendError) {
-      setReviewSent(sendError instanceof Error ? sendError.message : "Failed to send review request");
+      setReviewSent(sendError instanceof Error ? sendError.message : tx({ en: "Failed to send review request", bn: "রিভিউ অনুরোধ পাঠানো যায়নি" }));
     }
   }
 
@@ -127,83 +129,83 @@ export function ScanPageContent() {
     <main className="page-shell">
       <section className="hero-card reveal">
         <div className="hero-top">
-          <p className="eyebrow">Scan Center</p>
-          <div className="live-pill">Live OCR and PDF Pipeline</div>
+          <p className="eyebrow">{tx({ en: "Scan Center", bn: "স্ক্যান সেন্টার" })}</p>
+          <div className="live-pill">{tx({ en: "Live OCR and PDF Pipeline", bn: "লাইভ OCR ও PDF পাইপলাইন" })}</div>
         </div>
-        <h2>Upload image or PDF, extract claim text, and verify verdict via backend pipeline.</h2>
+        <h2>{tx({ en: "Upload image or PDF, extract claim text, and verify verdict via backend pipeline.", bn: "ইমেজ বা PDF আপলোড করুন, ক্লেম টেক্সট এক্সট্র্যাক্ট করুন এবং ব্যাকএন্ড পাইপলাইনে ভার্ডিক্ট যাচাই করুন।" })}</h2>
         <p className="subtitle">
-          This page is directly connected to /api/v1/analyze/image and /api/v1/analyze/pdf.
+          {tx({ en: "This page is directly connected to /api/v1/analyze/image and /api/v1/analyze/pdf.", bn: "এই পেজটি সরাসরি /api/v1/analyze/image এবং /api/v1/analyze/pdf এর সাথে সংযুক্ত।" })}
         </p>
       </section>
 
       <section className="grid">
         <article className="panel reveal delay-1">
-          <h2>Upload and Analyze</h2>
+          <h2>{tx({ en: "Upload and Analyze", bn: "আপলোড ও বিশ্লেষণ" })}</h2>
           <form onSubmit={onSubmit} className="form-stack">
-            <div className="mode-toggle" role="tablist" aria-label="Scan mode">
+            <div className="mode-toggle" role="tablist" aria-label={tx({ en: "Scan mode", bn: "স্ক্যান মোড" })}>
               <button
                 type="button"
                 className={mode === "image" ? "tab-btn active" : "tab-btn"}
                 onClick={() => onModeChange("image")}
               >
-                Image OCR
+                {tx({ en: "Image OCR", bn: "ইমেজ OCR" })}
               </button>
               <button
                 type="button"
                 className={mode === "pdf" ? "tab-btn active" : "tab-btn"}
                 onClick={() => onModeChange("pdf")}
               >
-                PDF OCR
+                {tx({ en: "PDF OCR", bn: "PDF OCR" })}
               </button>
             </div>
 
             <label>
-              <span>Language Route</span>
+              <span>{tx({ en: "Language Route", bn: "ভাষার রুট" })}</span>
               <select value={language} onChange={(e) => setLanguage(e.target.value)}>
-                <option value="bn">Bangla</option>
-                <option value="en">English</option>
+                <option value="bn">{tx({ en: "Bangla", bn: "বাংলা" })}</option>
+                <option value="en">{tx({ en: "English", bn: "ইংরেজি" })}</option>
                 <option value="banglish">Banglish</option>
-                <option value="international">International</option>
-                <option value="auto">Auto</option>
+                <option value="international">{tx({ en: "International", bn: "আন্তর্জাতিক" })}</option>
+                <option value="auto">{tx({ en: "Auto", bn: "অটো" })}</option>
               </select>
             </label>
 
             <label>
-              <span>{mode === "image" ? "Image File" : "PDF File"}</span>
+              <span>{mode === "image" ? tx({ en: "Image File", bn: "ইমেজ ফাইল" }) : tx({ en: "PDF File", bn: "PDF ফাইল" })}</span>
               <input type="file" accept={accepted} onChange={onFileChange} />
             </label>
 
             {file && (
               <p className="meta">
-                Selected: {file.name} ({Math.max(1, Math.round(file.size / 1024))} KB)
+                {tx({ en: "Selected", bn: "নির্বাচিত" })}: {file.name} ({Math.max(1, Math.round(file.size / 1024))} KB)
               </p>
             )}
 
             <div className="actions">
               <button type="submit" disabled={!canSubmit}>
-                Run {mode === "image" ? "Image" : "PDF"} Verification
+                {tx({ en: "Run", bn: "চালান" })} {mode === "image" ? tx({ en: "Image", bn: "ইমেজ" }) : "PDF"} {tx({ en: "Verification", bn: "ভেরিফিকেশন" })}
               </button>
-              <div className="phase-chip">{phaseText(phase)}</div>
+              <div className="phase-chip">{phaseText(phase, tx)}</div>
             </div>
           </form>
 
-          {claimId && <p className="meta">Claim ID: {claimId}</p>}
+          {claimId && <p className="meta">{tx({ en: "Claim ID", bn: "ক্লেম আইডি" })}: {claimId}</p>}
           {error && <p className="error">{error}</p>}
         </article>
 
         <article className="panel reveal delay-2">
-          <h2>What Happens</h2>
+          <h2>{tx({ en: "What Happens", bn: "কি ঘটে" })}</h2>
           <ol className="pipeline-list">
-            <li>File is uploaded to backend storage.</li>
-            <li>OCR extracts text from image or PDF content.</li>
-            <li>Extracted claim flows through retrieval and reranking.</li>
-            <li>Verdict, confidence, and evidence links are returned.</li>
+            <li>{tx({ en: "File is uploaded to backend storage.", bn: "ফাইল ব্যাকএন্ড স্টোরেজে আপলোড হয়।" })}</li>
+            <li>{tx({ en: "OCR extracts text from image or PDF content.", bn: "OCR ইমেজ বা PDF থেকে টেক্সট বের করে।" })}</li>
+            <li>{tx({ en: "Extracted claim flows through retrieval and reranking.", bn: "এক্সট্র্যাক্ট হওয়া ক্লেম retrieval ও reranking এর মধ্যে যায়।" })}</li>
+            <li>{tx({ en: "Verdict, confidence, and evidence links are returned.", bn: "ভার্ডিক্ট, কনফিডেন্স এবং এভিডেন্স লিংক ফেরত আসে।" })}</li>
           </ol>
         </article>
       </section>
 
       <section className="panel reveal delay-3">
-        <h2>Scan Result</h2>
+        <h2>{tx({ en: "Scan Result", bn: "স্ক্যান ফলাফল" })}</h2>
         {phase === "submitting" && (
           <div style={{ display: "grid", gap: "1rem" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -225,7 +227,7 @@ export function ScanPageContent() {
           </div>
         )}
         {phase === "failed" && !result && <p className="error">{error || "Claim verification failed."}</p>}
-        {phase === "idle" && !result && <p className="muted">Upload a file to view OCR + verdict result.</p>}
+        {phase === "idle" && !result && <p className="muted">{tx({ en: "Upload a file to view OCR + verdict result.", bn: "OCR + ভার্ডিক্ট ফলাফল দেখতে একটি ফাইল আপলোড করুন।" })}</p>}
 
         {result && (
           <>

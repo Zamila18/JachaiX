@@ -6,6 +6,7 @@ import {
   publishFactCheckFromClaim,
   updateAdminFactCheck,
 } from "@/lib/api";
+import { useLanguage } from "@/lib/i18n";
 import type { AdminCompletedClaimItem } from "@/lib/types";
 
 interface RowDraft {
@@ -24,6 +25,7 @@ function parseTags(tagsText: string): string[] {
 }
 
 export function AdminPublishQueuePage() {
+  const { tx } = useLanguage();
   const [items, setItems] = useState<AdminCompletedClaimItem[]>([]);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
@@ -53,7 +55,7 @@ export function AdminPublishQueuePage() {
         return next;
       });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to load queue.");
+      setMessage(error instanceof Error ? error.message : tx({ en: "Failed to load queue.", bn: "কিউ লোড করা যায়নি।" }));
     } finally {
       setLoading(false);
     }
@@ -91,10 +93,10 @@ export function AdminPublishQueuePage() {
         published_by: "admin_queue",
         status: "published",
       });
-      setMessage(`Published claim ${item.claim_id}.`);
+      setMessage(tx({ en: `Published claim ${item.claim_id}.`, bn: `ক্লেম ${item.claim_id} প্রকাশিত হয়েছে।` }));
       await load();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to publish.");
+      setMessage(error instanceof Error ? error.message : tx({ en: "Failed to publish.", bn: "প্রকাশ করা যায়নি।" }));
     } finally {
       setBusyClaimId(null);
     }
@@ -116,10 +118,10 @@ export function AdminPublishQueuePage() {
         summary: draft.summary,
         published_by: "admin_queue",
       });
-      setMessage(`Updated published card for claim ${item.claim_id}.`);
+      setMessage(tx({ en: `Updated published card for claim ${item.claim_id}.`, bn: `ক্লেম ${item.claim_id} এর প্রকাশিত কার্ড আপডেট হয়েছে।` }));
       await load();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to update.");
+      setMessage(error instanceof Error ? error.message : tx({ en: "Failed to update.", bn: "আপডেট করা যায়নি।" }));
     } finally {
       setBusyClaimId(null);
     }
@@ -129,12 +131,12 @@ export function AdminPublishQueuePage() {
     <main className="page-shell">
       <section className="hero-card reveal">
         <div className="hero-top">
-          <p className="eyebrow">Admin Publish Queue</p>
-          <div className="live-pill">Completed claims: {items.length}</div>
+          <p className="eyebrow">{tx({ en: "Admin Publish Queue", bn: "অ্যাডমিন পাবলিশ কিউ" })}</p>
+          <div className="live-pill">{tx({ en: "Completed claims", bn: "সম্পন্ন ক্লেম" })}: {items.length}</div>
         </div>
-        <h1>Publish completed claims to public fact-check cards in one click.</h1>
+        <h1>{tx({ en: "Publish completed claims to public fact-check cards in one click.", bn: "এক ক্লিকে সম্পন্ন ক্লেমকে পাবলিক ফ্যাক্ট-চেক কার্ড হিসেবে প্রকাশ করুন।" })}</h1>
         <p className="subtitle">
-          Queue shows completed claims, publication state, and editorial controls for scope, tags, and featured status.
+          {tx({ en: "Queue shows completed claims, publication state, and editorial controls for scope, tags, and featured status.", bn: "কিউতে সম্পন্ন ক্লেম, প্রকাশনা অবস্থা, এবং scope, tags ও featured স্ট্যাটাসের editorial control দেখায়।" })}
         </p>
       </section>
 
@@ -144,12 +146,12 @@ export function AdminPublishQueuePage() {
             className="search-input"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search completed claims"
+            placeholder={tx({ en: "Search completed claims", bn: "সম্পন্ন ক্লেম খুঁজুন" })}
           />
           <button type="button" onClick={load} disabled={loading}>
-            {loading ? "Refreshing..." : "Refresh"}
+            {loading ? tx({ en: "Refreshing...", bn: "রিফ্রেশ হচ্ছে..." }) : tx({ en: "Refresh", bn: "রিফ্রেশ" })}
           </button>
-          <p className="muted">Unpublished: {unpublishedCount}</p>
+          <p className="muted">{tx({ en: "Unpublished", bn: "অপ্রকাশিত" })}: {unpublishedCount}</p>
         </div>
         {message && <p className="meta">{message}</p>}
       </section>
@@ -166,14 +168,14 @@ export function AdminPublishQueuePage() {
                   <span className={`verdict-chip ${item.verdict === "true" ? "is-true" : item.verdict === "false" ? "is-false" : item.verdict === "misleading" ? "is-misleading" : "is-unverified"}`}>
                     {(item.verdict || "unverified").toUpperCase()}
                   </span>
-                  <span className="scope-chip">{item.is_published ? "Published" : "Not Published"}</span>
+                  <span className="scope-chip">{item.is_published ? tx({ en: "Published", bn: "প্রকাশিত" }) : tx({ en: "Not Published", bn: "প্রকাশিত নয়" })}</span>
                 </div>
 
                 <h3>{item.claim_text || item.raw_input || `Claim ${item.claim_id}`}</h3>
-                <p className="muted">Confidence: {item.confidence_score ?? "n/a"}</p>
+                <p className="muted">{tx({ en: "Confidence", bn: "কনফিডেন্স" })}: {item.confidence_score ?? "n/a"}</p>
 
                 <label>
-                  <span>Card title</span>
+                  <span>{tx({ en: "Card title", bn: "কার্ড শিরোনাম" })}</span>
                   <textarea
                     value={draft.title}
                     onChange={(e) => setDraftField(item.claim_id, "title", e.target.value)}
@@ -182,29 +184,29 @@ export function AdminPublishQueuePage() {
                 </label>
 
                 <label>
-                  <span>Summary</span>
+                  <span>{tx({ en: "Summary", bn: "সারসংক্ষেপ" })}</span>
                   <textarea
                     value={draft.summary}
                     onChange={(e) => setDraftField(item.claim_id, "summary", e.target.value)}
                     rows={3}
-                    placeholder="Short summary for card and detail page"
+                    placeholder={tx({ en: "Short summary for card and detail page", bn: "কার্ড ও বিস্তারিত পাতার জন্য সংক্ষিপ্ত সারাংশ" })}
                   />
                 </label>
 
                 <div className="admin-inline-grid">
                   <label>
-                    <span>Coverage scope</span>
+                    <span>{tx({ en: "Coverage scope", bn: "কভারেজ স্কোপ" })}</span>
                     <select
                       value={draft.scope}
                       onChange={(e) => setDraftField(item.claim_id, "scope", e.target.value as "bangladesh" | "international")}
                     >
-                      <option value="bangladesh">Bangladesh</option>
-                      <option value="international">International</option>
+                      <option value="bangladesh">{tx({ en: "Bangladesh", bn: "বাংলাদেশ" })}</option>
+                      <option value="international">{tx({ en: "International", bn: "আন্তর্জাতিক" })}</option>
                     </select>
                   </label>
 
                   <label className="toggle-label">
-                    <span>Featured</span>
+                    <span>{tx({ en: "Featured", bn: "ফিচার্ড" })}</span>
                     <input
                       type="checkbox"
                       checked={draft.isFeatured}
@@ -214,23 +216,23 @@ export function AdminPublishQueuePage() {
                 </div>
 
                 <label>
-                  <span>Tags (comma-separated)</span>
+                  <span>{tx({ en: "Tags (comma-separated)", bn: "ট্যাগ (কমা দিয়ে আলাদা)" })}</span>
                   <input
                     className="search-input"
                     value={draft.tagsText}
                     onChange={(e) => setDraftField(item.claim_id, "tagsText", e.target.value)}
-                    placeholder="health, election, social-media"
+                    placeholder={tx({ en: "health, election, social-media", bn: "health, election, social-media" })}
                   />
                 </label>
 
                 <div className="actions">
                   {!item.is_published ? (
                     <button type="button" onClick={() => onPublish(item)} disabled={busyClaimId === item.claim_id}>
-                      {busyClaimId === item.claim_id ? "Publishing..." : "Publish"}
+                      {busyClaimId === item.claim_id ? tx({ en: "Publishing...", bn: "প্রকাশ করা হচ্ছে..." }) : tx({ en: "Publish", bn: "প্রকাশ করুন" })}
                     </button>
                   ) : (
                     <button type="button" className="secondary" onClick={() => onUpdate(item)} disabled={busyClaimId === item.claim_id}>
-                      {busyClaimId === item.claim_id ? "Saving..." : "Save Changes"}
+                      {busyClaimId === item.claim_id ? tx({ en: "Saving...", bn: "সেভ হচ্ছে..." }) : tx({ en: "Save Changes", bn: "পরিবর্তন সংরক্ষণ" })}
                     </button>
                   )}
                 </div>

@@ -512,6 +512,36 @@ body {
   background: linear-gradient(130deg, rgba(31, 74, 115, 0.6), rgba(20, 48, 76, 0.62));
 }
 
+.topbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.lang-switcher {
+  display: inline-flex;
+  border: 1px solid rgba(126, 188, 230, 0.35);
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(10, 23, 38, 0.75);
+}
+
+.lang-switcher button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #cde4fb;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 0.34rem 0.56rem;
+}
+
+.lang-switcher button.active {
+  color: #f5fbff;
+  background: linear-gradient(130deg, rgba(87, 225, 195, 0.3), rgba(106, 180, 255, 0.26));
+}
+
 .app-content {
   min-width: 0;
   padding: 0.85rem 1.45rem 1.35rem;
@@ -1532,6 +1562,11 @@ button.secondary {
     flex-direction: column;
     align-items: flex-start;
     padding: 0.36rem 0;
+  }
+
+  .topbar-meta {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .topbar,

@@ -2,55 +2,57 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLanguage } from "@/lib/i18n";
 
 const navItems = [
-  { label: "Homepage", href: "/" },
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Workspace", href: "/workspace" },
-  { label: "Cases", href: "/cases" },
-  { label: "Modalities", href: "/modalities" },
-  { label: "Audit", href: "/audit" },
-  { label: "Scan", href: "/scan" },
-  { label: "Fact Checks", href: "/facts" },
-  { label: "Admin Queue", href: "/admin/publish-queue" },
-  { label: "Docs", href: "/docs" },
-  { label: "Admin Docs", href: "/admin/docs" },
-  { label: "Reports", href: "/reports" },
-  { label: "Analytics", href: "/analytics" },
-  { label: "Threat Map", href: "/threatmap" },
-  { label: "Alerts", href: "/alerts" },
-  { label: "Chat", href: "/chat" },
-  { label: "Investigation", href: "/investigation" },
-  { label: "Moderator", href: "/moderator" },
-  { label: "Monitor", href: "/monitor" },
-  { label: "Settings", href: "/settings" },
+  { key: "homepage", href: "/" },
+  { key: "dashboard", href: "/dashboard" },
+  { key: "workspace", href: "/workspace" },
+  { key: "cases", href: "/cases" },
+  { key: "modalities", href: "/modalities" },
+  { key: "audit", href: "/audit" },
+  { key: "scan", href: "/scan" },
+  { key: "factChecks", href: "/facts" },
+  { key: "adminQueue", href: "/admin/publish-queue" },
+  { key: "docs", href: "/docs" },
+  { key: "adminDocs", href: "/admin/docs" },
+  { key: "reports", href: "/reports" },
+  { key: "analytics", href: "/analytics" },
+  { key: "threatMap", href: "/threatmap" },
+  { key: "alerts", href: "/alerts" },
+  { key: "chat", href: "/chat" },
+  { key: "investigation", href: "/investigation" },
+  { key: "moderator", href: "/moderator" },
+  { key: "monitor", href: "/monitor" },
+  { key: "settings", href: "/settings" },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { t } = useLanguage();
 
   return (
     <aside className="sidebar">
       <div className="brand-block">
         <p>JachaiX</p>
-        <span>Trust Intelligence Suite</span>
+        <span>{t.nav.trustSuite}</span>
       </div>
 
-      <nav className="side-nav" aria-label="Primary">
+      <nav className="side-nav" aria-label={t.nav.primaryLabel}>
         {navItems.map((item) => {
           const active = pathname === item.href;
           return (
             <Link key={item.href} href={item.href} className={active ? "active" : ""}>
-              {item.label}
+              {t.nav.items[item.key as keyof typeof t.nav.items]}
             </Link>
           );
         })}
       </nav>
 
       <div className="side-status">
-        <strong>System</strong>
+        <strong>{t.nav.system}</strong>
         <p>
-          <span className="status-dot" /> Live backend connectivity
+          <span className="status-dot" /> {t.nav.connectivity}
         </p>
       </div>
     </aside>

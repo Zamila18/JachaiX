@@ -232,3 +232,21 @@ Optional proxy target override (if backend host differs):
 $env:NEXT_PUBLIC_API_PROXY_TARGET = "http://127.0.0.1:8080"
 npm.cmd run dev
 ```
+
+## 12) MCP Servers (Model Context Protocol)
+
+JachaiX now includes three MCP servers:
+
+- `services/mcp-server` (Fact Checker tools)
+- `services/mcp-ops-server` (Ops + monitoring tools)
+- `services/mcp-docs-server` (Docs/publication tools)
+
+Start them with Docker Compose:
+
+```powershell
+docker compose up -d --build mcp-server mcp-ops-server mcp-docs-server
+```
+
+Detailed tool inventory and integration notes:
+
+- `docs/mcp-servers.md`

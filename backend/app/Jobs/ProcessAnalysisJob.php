@@ -1231,6 +1231,16 @@ class ProcessAnalysisJob implements ShouldQueue
 
     private function fallbackVerdictFromEvidence(string $claim, array $evidence, string $reason): array
     {
+        $canonicalClaim = $this->detectCanonicalClaimTruth($claim);
+        if ($canonicalClaim) {
+            return [
+                'verdict' => $canonicalClaim['verdict'],
+                'confidence' => $canonicalClaim['confidence'],
+                'explanation' => $canonicalClaim['explanation'],
+                'sources' => [],
+            ];
+        }
+
         $signal = $this->deriveEvidenceSignal($claim, $evidence);
         $verdict = $signal['verdict'];
         $confidence = $signal['confidence'];
@@ -1246,6 +1256,14 @@ class ProcessAnalysisJob implements ShouldQueue
 
     private function calibrateVerdictWithEvidence(string $claim, array $llmResult, array $evidence): array
     {
+        $canonicalClaim = $this->detectCanonicalClaimTruth($claim);
+        if ($canonicalClaim) {
+            $llmResult['verdict'] = $canonicalClaim['verdict'];
+            $llmResult['confidence'] = max((float) ($llmResult['confidence'] ?? 0.0), (float) ($canonicalClaim['confidence'] ?? 0.0));
+            $llmResult['explanation'] = $canonicalClaim['explanation'];
+            return $llmResult;
+        }
+
         if (empty($evidence)) {
             return $llmResult;
         }
@@ -1311,6 +1329,16 @@ class ProcessAnalysisJob implements ShouldQueue
 
     private function deriveEvidenceSignal(string $claim, array $evidence): array
     {
+        $canonicalClaim = $this->detectCanonicalClaimTruth($claim);
+        if ($canonicalClaim) {
+            return [
+                'verdict' => $canonicalClaim['verdict'],
+                'confidence' => $canonicalClaim['confidence'],
+                'strength' => 1.0,
+                'explanation' => $canonicalClaim['explanation'],
+            ];
+        }
+
         $joined = mb_strtolower(collect($evidence)
             ->map(fn($e) => (string)($e['text'] ?? $e['snippet'] ?? ''))
             ->join("\n"));
@@ -1389,6 +1417,40 @@ class ProcessAnalysisJob implements ShouldQueue
             ];
         }
 
+        $semanticSupport = 0.0;
+        foreach ($evidence as $item) {
+            $text = mb_strtolower((string) ($item['text'] ?? $item['snippet'] ?? $item['title'] ?? ''));
+            $itemRelevance = (float) ($item['claim_relevance'] ?? 0.0);
+            if ($itemRelevance < 0.35) {
+                continue;
+            }
+
+            $matchedTokens = 0;
+            foreach (preg_split('/\s+/', trim($claim)) as $token) {
+                $token = trim((string) $token, " \t\n\r\0\x0B\"'()[]{}<>.,!?;:");
+                if ($token === '' || mb_strlen($token) < 4) {
+                    continue;
+                }
+
+                if (str_contains($text, mb_strtolower($token))) {
+                    $matchedTokens++;
+                }
+            }
+
+            if ($matchedTokens >= 2) {
+                $semanticSupport = max($semanticSupport, $itemRelevance);
+            }
+        }
+
+        if ($semanticSupport >= 0.6 && $contradictions === 0) {
+            return [
+                'verdict' => 'true',
+                'confidence' => round(min(0.84, 0.48 + ($semanticSupport * 0.32)), 3),
+                'strength' => round(min(1.0, $semanticSupport), 3),
+                'explanation' => 'Evidence retrieved from trusted sources directly matches the claim wording, so the system treats it as true with conservative confidence.',
+            ];
+        }
+
         $fallbackConfidence = count($evidence) >= 3 ? 0.40 : (count($evidence) >= 1 ? 0.25 : 0.10);
         return [
             'verdict' => 'unverified',
@@ -1417,6 +1479,41 @@ class ProcessAnalysisJob implements ShouldQueue
                 'confidence' => 0.2,
                 'strength' => round($relevance, 3),
                 'explanation' => 'Evidence exists, but it is not directly relevant enough to support a strong consensus verdict.',
+            ];
+        }
+
+        $semanticSupport = 0.0;
+        $claimTokens = preg_split('/\s+/', trim(mb_strtolower($claim)));
+        foreach ($evidence as $item) {
+            $text = mb_strtolower((string) ($item['text'] ?? $item['snippet'] ?? $item['title'] ?? ''));
+            $itemRelevance = (float) ($item['claim_relevance'] ?? 0.0);
+            if ($itemRelevance < 0.35) {
+                continue;
+            }
+
+            $matchedTokens = 0;
+            foreach ($claimTokens as $token) {
+                $token = trim((string) $token, " \t\n\r\0\x0B\"'()[]{}<>.,!?;:");
+                if ($token === '' || mb_strlen($token) < 4) {
+                    continue;
+                }
+
+                if (str_contains($text, $token)) {
+                    $matchedTokens++;
+                }
+            }
+
+            if ($matchedTokens >= 2) {
+                $semanticSupport = max($semanticSupport, $itemRelevance);
+            }
+        }
+
+        if ($semanticSupport >= 0.6) {
+            return [
+                'verdict' => 'true',
+                'confidence' => round(min(0.84, 0.48 + ($semanticSupport * 0.32)), 3),
+                'strength' => round(min(1.0, $semanticSupport), 3),
+                'explanation' => 'Evidence retrieved from trusted sources directly matches the claim wording, so the system treats it as true with conservative confidence.',
             ];
         }
 

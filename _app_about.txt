@@ -1,0 +1,15 @@
+﻿docker.exe : Error response from daemon: 
+container cbabdd531c9071c34925bd55b9b36e1346d
+e0b2a20e08f74173ba1f924d099e1 is not running
+At line:1 char:86
++ ... { $health = & $docker exec 
+jachaix-app-1 php artisan about 2>&1; $hea 
+...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified:  
+   (Error response ... is not running:Strin  
+  g) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandE 
+   rror
+ 

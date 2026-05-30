@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getPublicDocs } from "@/lib/api";
+import { useLanguage } from "@/lib/i18n";
 import type { DocsLiveData, DocsPageData, DocsPitchSection, DocsVisibility } from "@/lib/types";
 
 function isTransientNetworkError(error: unknown): boolean {
@@ -48,6 +49,7 @@ function toMarkdown(page: DocsPageData, live: DocsLiveData): string {
 }
 
 export function DocsPageView() {
+  const { tx } = useLanguage();
   const [page, setPage] = useState<DocsPageData | null>(null);
   const [liveData, setLiveData] = useState<DocsLiveData | null>(null);
   const [visibility, setVisibility] = useState<DocsVisibility | null>(null);
@@ -69,7 +71,7 @@ export function DocsPageView() {
           if (!mounted) return;
 
           if (res.success === false) {
-            setBlocked(res.message || "Documentation is not available right now.");
+            setBlocked(res.message || tx({ en: "Documentation is not available right now.", bn: "ডকুমেন্টেশন এখন উপলভ্য নয়।" }));
             setVisibility(res.visibility);
             return;
           }
@@ -85,10 +87,10 @@ export function DocsPageView() {
 
           setBlocked(
             isTransientNetworkError(error)
-              ? "Documentation is temporarily unavailable. Please refresh and try again."
+              ? tx({ en: "Documentation is temporarily unavailable. Please refresh and try again.", bn: "ডকুমেন্টেশন সাময়িকভাবে অনুপলব্ধ। রিফ্রেশ করে আবার চেষ্টা করুন।" })
               : error instanceof Error
                 ? error.message
-                : "Failed to load docs."
+                : tx({ en: "Failed to load docs.", bn: "ডকস লোড করা যায়নি।" })
           );
           return;
         }
@@ -162,10 +164,10 @@ export function DocsPageView() {
   async function copyShareLink() {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      setCopied("Link copied!");
+      setCopied(tx({ en: "Link copied!", bn: "লিংক কপি হয়েছে!" }));
       setTimeout(() => setCopied(null), 2500);
     } catch {
-      setCopied("Could not copy link.");
+      setCopied(tx({ en: "Could not copy link.", bn: "লিংক কপি করা যায়নি।" }));
       setTimeout(() => setCopied(null), 2500);
     }
   }
@@ -173,12 +175,12 @@ export function DocsPageView() {
   async function copyToClipboard(key: string, textToCopy: string) {
     try {
       await navigator.clipboard.writeText(textToCopy);
-      setCopyStates((prev) => ({ ...prev, [key]: "Copied!" }));
+      setCopyStates((prev) => ({ ...prev, [key]: tx({ en: "Copied!", bn: "কপি হয়েছে!" }) }));
       setTimeout(() => {
         setCopyStates((prev) => ({ ...prev, [key]: "" }));
       }, 2000);
     } catch {
-      setCopyStates((prev) => ({ ...prev, [key]: "Error" }));
+      setCopyStates((prev) => ({ ...prev, [key]: tx({ en: "Error", bn: "ত্রুটি" }) }));
       setTimeout(() => {
         setCopyStates((prev) => ({ ...prev, [key]: "" }));
       }, 2000);
@@ -230,18 +232,18 @@ export function DocsPageView() {
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
-          <p className="eyebrow" style={{ color: "var(--warn)" }}>/docs access control</p>
-          <h1 style={{ fontSize: "1.85rem", marginTop: "0.5rem" }}>Documentation Locked</h1>
+          <p className="eyebrow" style={{ color: "var(--warn)" }}>{tx({ en: "/docs access control", bn: "/docs এক্সেস কন্ট্রোল" })}</p>
+          <h1 style={{ fontSize: "1.85rem", marginTop: "0.5rem" }}>{tx({ en: "Documentation Locked", bn: "ডকুমেন্টেশন লকড" })}</h1>
           <p className="muted" style={{ margin: "1rem 0 2rem", fontSize: "0.98rem", lineHeight: "1.6" }}>
-            {blocked || "This page is currently hidden by administrator controls."}
+            {blocked || tx({ en: "This page is currently hidden by administrator controls.", bn: "এই পেজটি বর্তমানে অ্যাডমিন কন্ট্রোল দ্বারা লুকানো আছে।" })}
           </p>
           {visibility && (
             <div style={{ background: "rgba(243, 195, 114, 0.06)", border: "1px solid rgba(243, 195, 114, 0.2)", borderRadius: "12px", padding: "1rem", display: "inline-block", textAlign: "left", width: "100%" }}>
-              <p style={{ margin: 0, fontSize: "0.84rem", fontWeight: "600", color: "#f3c372" }}>Active Window Settings:</p>
+              <p style={{ margin: 0, fontSize: "0.84rem", fontWeight: "600", color: "#f3c372" }}>{tx({ en: "Active Window Settings:", bn: "সক্রিয় উইন্ডো সেটিংস:" })}</p>
               <ul style={{ margin: "0.5rem 0 0", paddingLeft: "1.2rem", fontSize: "0.82rem", color: "#e0ebfb", display: "grid", gap: "0.25rem" }}>
-                <li>Visibility Switch: <strong>{visibility.is_enabled ? "ENABLED" : "DISABLED"}</strong></li>
-                <li>Access Opens: <strong>{visibility.available_from ? new Date(visibility.available_from).toLocaleString() : "No limit"}</strong></li>
-                <li>Access Closes: <strong>{visibility.available_until ? new Date(visibility.available_until).toLocaleString() : "No limit"}</strong></li>
+                <li>{tx({ en: "Visibility Switch", bn: "ভিজিবিলিটি সুইচ" })}: <strong>{visibility.is_enabled ? tx({ en: "ENABLED", bn: "সক্রিয়" }) : tx({ en: "DISABLED", bn: "নিষ্ক্রিয়" })}</strong></li>
+                <li>{tx({ en: "Access Opens", bn: "অ্যাক্সেস খোলে" })}: <strong>{visibility.available_from ? new Date(visibility.available_from).toLocaleString() : tx({ en: "No limit", bn: "সীমা নেই" })}</strong></li>
+                <li>{tx({ en: "Access Closes", bn: "অ্যাক্সেস বন্ধ" })}: <strong>{visibility.available_until ? new Date(visibility.available_until).toLocaleString() : tx({ en: "No limit", bn: "সীমা নেই" })}</strong></li>
               </ul>
             </div>
           )}
@@ -258,12 +260,12 @@ export function DocsPageView() {
     <main className="page-shell">
       <section className="hero-card reveal docs-hero">
         <div className="hero-top">
-          <p className="eyebrow">Interactive Live Docs</p>
+          <p className="eyebrow">{tx({ en: "Interactive Live Docs", bn: "ইন্টারঅ্যাকটিভ লাইভ ডকস" })}</p>
           <div className="live-pill">v{page.version}</div>
         </div>
-        <h1 style={{ fontSize: "2.1rem", marginTop: "0.5rem" }}>Pitch Deck + Technical Architecture + Live Sandbox</h1>
+        <h1 style={{ fontSize: "2.1rem", marginTop: "0.5rem" }}>{tx({ en: "Pitch Deck + Technical Architecture + Live Sandbox", bn: "পিচ ডেক + টেকনিক্যাল আর্কিটেকচার + লাইভ স্যান্ডবক্স" })}</h1>
         <p className="subtitle" style={{ fontSize: "1.02rem", marginTop: "0.6rem" }}>
-          Understand JachaiX in minutes. Review technical system diagrams, endpoint maps, and live operational stats below.
+          {tx({ en: "Understand JachaiX in minutes. Review technical system diagrams, endpoint maps, and live operational stats below.", bn: "কয়েক মিনিটে JachaiX বুঝুন। নিচে টেকনিক্যাল সিস্টেম ডায়াগ্রাম, এন্ডপয়েন্ট ম্যাপ ও লাইভ অপারেশনাল স্ট্যাট দেখুন।" })}
         </p>
         <div className="docs-actions">
           <button type="button" onClick={copyShareLink} style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
@@ -280,7 +282,7 @@ export function DocsPageView() {
                   <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                   <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                 </svg>
-                <span>Copy Share Link</span>
+                <span>{tx({ en: "Copy Share Link", bn: "শেয়ার লিংক কপি করুন" })}</span>
               </>
             )}
           </button>
@@ -290,7 +292,7 @@ export function DocsPageView() {
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            <span>Export Markdown</span>
+            <span>{tx({ en: "Export Markdown", bn: "মার্কডাউন এক্সপোর্ট" })}</span>
           </button>
           <button type="button" className="secondary" onClick={() => window.print()} style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -298,7 +300,7 @@ export function DocsPageView() {
               <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
               <rect x="6" y="14" width="12" height="8" />
             </svg>
-            <span>Export PDF</span>
+            <span>{tx({ en: "Export PDF", bn: "PDF এক্সপোর্ট" })}</span>
           </button>
         </div>
       </section>
@@ -306,19 +308,19 @@ export function DocsPageView() {
       {/* Docs Mobile Pill Navigation */}
       <section className="panel reveal docs-mobile-toc">
         <div style={{ display: "grid", gap: "0.5rem" }}>
-          <span style={{ fontSize: "0.75rem", textTransform: "uppercase", fontWeight: "700", color: "var(--warn)" }}>Table of Contents</span>
+          <span style={{ fontSize: "0.75rem", textTransform: "uppercase", fontWeight: "700", color: "var(--warn)" }}>{tx({ en: "Table of Contents", bn: "সূচিপত্র" })}</span>
           <select value={activeId} onChange={(e) => {
             const el = document.getElementById(e.target.value);
             if (el) el.scrollIntoView({ behavior: "smooth" });
           }}>
-            <option value="metrics">Live metrics</option>
+            <option value="metrics">{tx({ en: "Live metrics", bn: "লাইভ মেট্রিক্স" })}</option>
             {visibleSections.map((section) => (
               <option key={section.id} value={section.id}>{section.title}</option>
             ))}
-            <option value="architecture">Architecture details</option>
-            <option value="api">API documentation</option>
-            <option value="team">Team members</option>
-            <option value="events">Recent pipeline events</option>
+            <option value="architecture">{tx({ en: "Architecture details", bn: "আর্কিটেকচার বিবরণ" })}</option>
+            <option value="api">{tx({ en: "API documentation", bn: "API ডকুমেন্টেশন" })}</option>
+            <option value="team">{tx({ en: "Team members", bn: "টিম মেম্বার" })}</option>
+            <option value="events">{tx({ en: "Recent pipeline events", bn: "সাম্প্রতিক পাইপলাইন ইভেন্ট" })}</option>
           </select>
         </div>
       </section>

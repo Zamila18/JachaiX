@@ -1,0 +1,3 @@
+﻿CONFIG_CLEARED=1
+QUEUE_RESTARTED=1
+CLAIM_ERROR=Unable to connect to the remote server

@@ -89,7 +89,7 @@ return [
         'strong_model_timeout' => (int) env('VERDICT_STRONG_MODEL_TIMEOUT', 18),
         'fast_model_timeout' => (int) env('VERDICT_FAST_MODEL_TIMEOUT', 10),
         'enable_strong_model' => $envBool('VERDICT_ENABLE_STRONG_MODEL', true),
-        'enable_canonical_shortcuts' => $envBool('VERDICT_ENABLE_CANONICAL_SHORTCUTS', false),
+        'enable_canonical_shortcuts' => $envBool('VERDICT_ENABLE_CANONICAL_SHORTCUTS', true),
     ],
 
     'sla' => [

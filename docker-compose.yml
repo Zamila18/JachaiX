@@ -112,6 +112,40 @@ services:
       - jachaix
     restart: unless-stopped
 
+  mcp-ops-server:
+    build:
+      context: ./services/mcp-ops-server
+      dockerfile: Dockerfile
+    ports:
+      - "5005:5005"
+    environment:
+      JACHAIX_API_URL: http://nginx/api/v1
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 5005
+      MCP_TRANSPORT: streamable-http
+    depends_on:
+      - nginx
+    networks:
+      - jachaix
+    restart: unless-stopped
+
+  mcp-docs-server:
+    build:
+      context: ./services/mcp-docs-server
+      dockerfile: Dockerfile
+    ports:
+      - "5006:5006"
+    environment:
+      JACHAIX_API_URL: http://nginx/api/v1
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 5006
+      MCP_TRANSPORT: streamable-http
+    depends_on:
+      - nginx
+    networks:
+      - jachaix
+    restart: unless-stopped
+
 volumes:
   mysql_data:
   qdrant_data:
