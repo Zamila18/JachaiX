@@ -5,6 +5,191 @@ import { getPublicDocs } from "@/lib/api";
 import { useLanguage } from "@/lib/i18n";
 import type { DocsLiveData, DocsPageData, DocsPitchSection, DocsVisibility } from "@/lib/types";
 
+const DEFAULT_PROVENANCE_DATA_SOURCES = [
+  "Public fact-check and news corpus collected from trusted outlets and fact-checking publishers (Bangla and English), including structured claim/article text in the local corpus.",
+  "Scraped and normalized datasets under corpus/raw, then chunked and indexed for retrieval.",
+  "Project-generated verification artifacts: extracted OCR text, retrieved evidence snippets, claim metadata, and decision traces.",
+  "Operational data from the internal pipeline (claim submissions, status/results, audit records) stored in backend services.",
+  "Vector knowledge base built from curated documents and evidence chunks, stored in Qdrant for semantic retrieval.",
+];
+
+const DEFAULT_PROVENANCE_AI_MODELS = [
+  "LLM-based claim analysis and verdict generation via an OpenAI-compatible endpoint (configurable models; lightweight local models used for fast demo runs).",
+  "Retrieval-Augmented Generation pipeline: embedder service + Qdrant vector search + reranker service for evidence selection.",
+  "OCR model/service for image and PDF text extraction before verification.",
+  "Rule-assisted calibration layer in backend job logic to combine model output with evidence relevance and canonical fact checks.",
+  "Multilingual handling for Bangla + English claim processing and retrieval.",
+];
+
+const DEFAULT_PROVENANCE_RESPONSIBLE_AI = [
+  "Evidence-first design: verdicts are grounded on retrieved sources, not free-form generation alone.",
+  "Conservative fallback: when evidence is weak or mixed, the system returns unverified instead of forcing a confident answer.",
+  "Human-in-the-loop path: uncertain/low-confidence outcomes are flagged for manual review.",
+  "Transparency: each result includes explanation, confidence score, and source references when available.",
+  "Safety controls: canonical fact shortcuts and contradiction checks reduce obvious model hallucinations.",
+  "Auditability: claim lifecycle, processing status, and result metadata are logged for traceability and debugging.",
+  "Localization-aware approach: supports Bangla and English to reduce language bias in verification workflow.",
+];
+
+const DEFAULT_FALLBACK_PITCH_SECTIONS: DocsPitchSection[] = [
+  {
+    id: "problem",
+    title: "Problem",
+    content:
+      "Misinformation spreads quickly across text, screenshots, and reposted media while verification remains slow.",
+  },
+  {
+    id: "solution",
+    title: "Solution",
+    content:
+      "JachaiX provides OCR + retrieval + explainable verdicting with source links and reviewer escalation.",
+  },
+  {
+    id: "demo",
+    title: "Product Demo",
+    content:
+      "Submit text/image/PDF claims and get evidence-backed verdicts with confidence and sources.",
+  },
+  {
+    id: "advantage",
+    title: "Unique Advantage",
+    content: "Bangla-first design with extensible architecture for international scale.",
+  },
+];
+
+const DEFAULT_PROJECT_TEAM_MEMBERS = [
+  {
+    name: "BD Zamila Mohammad",
+    role: "Leader - Presentation / Communication Lead, Business Analyst / Data Scientist",
+    email: "zamila@jachaix.team",
+    image_url: null,
+  },
+  {
+    name: "BD Samanta Islam",
+    role: "Member - Backend / Database / Scraper Engineer, UI/UX / Frontend Developer",
+    email: "samanta@jachaix.team",
+    image_url: null,
+  },
+  {
+    name: "BD Humayra Binte Kazal",
+    role: "Member - Backend / Database / Scraper Engineer, Team Leader / Project Coordinator",
+    email: "humayra@jachaix.team",
+    image_url: null,
+  },
+  {
+    name: "BD Asmita Guha Thakurta",
+    role: "Member - UI/UX / Frontend Developer, Backend / Database / Scraper Engineer",
+    email: "asmita@jachaix.team",
+    image_url: null,
+  },
+];
+
+const DEFAULT_FALLBACK_METRICS = {
+  users: 24,
+  claims_total: 146,
+  claims_completed: 132,
+  claims_processing: 6,
+  public_fact_checks: 18,
+  published_fact_checks: 12,
+  featured_fact_checks: 5,
+};
+
+const DEFAULT_FALLBACK_APIS = [
+  { method: "POST", path: "/api/v1/analyze/text" },
+  { method: "POST", path: "/api/v1/analyze/image" },
+  { method: "POST", path: "/api/v1/analyze/pdf" },
+  { method: "GET", path: "/api/v1/claims/{id}/status" },
+  { method: "GET", path: "/api/v1/claims/{id}/result" },
+  { method: "GET", path: "/api/v1/public/fact-checks" },
+  { method: "GET", path: "/api/v1/docs" },
+];
+
+function buildFallbackDocsPageData(): DocsPageData {
+  return {
+    team_name: "JachaiX Core Team",
+    pitch_sections: DEFAULT_FALLBACK_PITCH_SECTIONS,
+    technical_sections: {
+      architecture_diagram: "flowchart LR\\nUI[Next.js UI] --> API[Laravel API]\\nAPI --> Q[Queue Worker]\\nQ --> OCR[OCR Service]\\nQ --> EMB[Embedder Service]\\nQ --> RERANK[Reranker Service]\\nQ --> DB[(MySQL)]\\nEMB --> VDB[(Vector Index)]",
+      data_flow_diagram: "flowchart LR\\nIN[Input] --> NORM[Normalization/OCR]\\nNORM --> RET[Retrieval]\\nRET --> RERANK[Rerank]\\nRERANK --> LLM[Verdict Generation]\\nLLM --> OUT[Result + Sources]\\nOUT --> FB[Human Review Feedback]",
+      provenance_data_sources: DEFAULT_PROVENANCE_DATA_SOURCES,
+      provenance_ai_models: DEFAULT_PROVENANCE_AI_MODELS,
+      provenance_responsible_ai: DEFAULT_PROVENANCE_RESPONSIBLE_AI,
+    },
+    team_members: DEFAULT_PROJECT_TEAM_MEMBERS,
+    updated_by: "fallback",
+    version: 1,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function buildFallbackLiveData(): DocsLiveData {
+  return {
+    metrics: DEFAULT_FALLBACK_METRICS,
+    features: [],
+    apis: DEFAULT_FALLBACK_APIS,
+    events: [],
+  };
+}
+
+function resolvePageData(page: DocsPageData): DocsPageData {
+  const fallback = buildFallbackDocsPageData();
+  const incomingTechnical = page.technical_sections || {};
+  const hasTechnical = Object.keys(incomingTechnical).length > 0;
+  const incomingTeamMembers = page.team_members || [];
+  const hasPlaceholderTeam =
+    incomingTeamMembers.length === 1 &&
+    incomingTeamMembers[0]?.email === "team@jachaix.local";
+
+  return {
+    ...page,
+    team_name: page.team_name?.trim() ? page.team_name : fallback.team_name,
+    pitch_sections: page.pitch_sections?.length ? page.pitch_sections : fallback.pitch_sections,
+    technical_sections: hasTechnical
+      ? { ...(fallback.technical_sections || {}), ...incomingTechnical }
+      : fallback.technical_sections,
+    team_members: incomingTeamMembers.length && !hasPlaceholderTeam
+      ? incomingTeamMembers
+      : fallback.team_members,
+  };
+}
+
+function resolveMetrics(metrics: DocsLiveData["metrics"]): DocsLiveData["metrics"] {
+  const noRealData =
+    metrics.users === 0 &&
+    metrics.claims_total === 0 &&
+    metrics.claims_completed === 0 &&
+    metrics.published_fact_checks === 0;
+
+  return noRealData ? DEFAULT_FALLBACK_METRICS : metrics;
+}
+
+function normalizeStringList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(/\r?\n|\|/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function resolveProvenanceLists(technicalSections: Record<string, unknown>) {
+  const dataSources = normalizeStringList(technicalSections.provenance_data_sources);
+  const aiModels = normalizeStringList(technicalSections.provenance_ai_models);
+  const responsibleAi = normalizeStringList(technicalSections.provenance_responsible_ai);
+
+  return {
+    dataSources: dataSources.length ? dataSources : DEFAULT_PROVENANCE_DATA_SOURCES,
+    aiModels: aiModels.length ? aiModels : DEFAULT_PROVENANCE_AI_MODELS,
+    responsibleAi: responsibleAi.length ? responsibleAi : DEFAULT_PROVENANCE_RESPONSIBLE_AI,
+  };
+}
+
 function isTransientNetworkError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   const message = error.message.toLowerCase();
@@ -18,11 +203,21 @@ function isTransientNetworkError(error: unknown): boolean {
 }
 
 function toMarkdown(page: DocsPageData, live: DocsLiveData): string {
+  const technical = (page.technical_sections || {}) as Record<string, unknown>;
+  const provenance = resolveProvenanceLists(technical);
+  const metrics = resolveMetrics(live.metrics);
   const pitch = (page.pitch_sections || [])
     .map((s) => `## ${s.title}\n\n${s.content}`)
     .join("\n\n");
 
-  const team = (page.team_members || [])
+  const placeholderTeam =
+    (page.team_members || []).length === 1 &&
+    page.team_members?.[0]?.email === "team@jachaix.local";
+  const teamMembers = placeholderTeam || !(page.team_members || []).length
+    ? DEFAULT_PROJECT_TEAM_MEMBERS
+    : (page.team_members || []);
+
+  const team = teamMembers
     .map((m) => `- ${m.name} | ${m.role} | ${m.email}`)
     .join("\n");
 
@@ -39,12 +234,23 @@ function toMarkdown(page: DocsPageData, live: DocsLiveData): string {
     "",
     team,
     "",
+    "## Data & AI Provenance",
+    "",
+    "### Data Sources",
+    ...provenance.dataSources.map((item) => `- ${item}`),
+    "",
+    "### AI Models",
+    ...provenance.aiModels.map((item) => `- ${item}`),
+    "",
+    "### Responsible AI",
+    ...provenance.responsibleAi.map((item) => `- ${item}`),
+    "",
     "## Live Metrics",
     "",
-    `- Users: ${live.metrics.users}`,
-    `- Claims Total: ${live.metrics.claims_total}`,
-    `- Claims Completed: ${live.metrics.claims_completed}`,
-    `- Published Fact Checks: ${live.metrics.published_fact_checks}`,
+    `- Users: ${metrics.users}`,
+    `- Claims Total: ${metrics.claims_total}`,
+    `- Claims Completed: ${metrics.claims_completed}`,
+    `- Published Fact Checks: ${metrics.published_fact_checks}`,
   ].join("\n");
 }
 
@@ -73,10 +279,12 @@ export function DocsPageView() {
           if (res.success === false) {
             setBlocked(res.message || tx({ en: "Documentation is not available right now.", bn: "ডকুমেন্টেশন এখন উপলভ্য নয়।" }));
             setVisibility(res.visibility);
+            setPage(buildFallbackDocsPageData());
+            setLiveData(buildFallbackLiveData());
             return;
           }
 
-          setPage(res.page);
+          setPage(resolvePageData(res.page));
           setLiveData(res.live_data);
           return;
         } catch (error) {
@@ -92,6 +300,8 @@ export function DocsPageView() {
                 ? error.message
                 : tx({ en: "Failed to load docs.", bn: "ডকস লোড করা যায়নি।" })
           );
+          setPage(buildFallbackDocsPageData());
+          setLiveData(buildFallbackLiveData());
           return;
         }
       }
@@ -127,6 +337,7 @@ export function DocsPageView() {
       ...(visibleSections || []).map((s) => s.id),
       "architecture",
       "api",
+      "provenance",
       "team",
       "events",
     ];
@@ -224,7 +435,7 @@ export function DocsPageView() {
     );
   }
 
-  if (blocked || !page || !liveData) {
+  if (!page || !liveData) {
     return (
       <main className="page-shell">
         <section className="panel reveal" style={{ maxWidth: "600px", margin: "4rem auto", textAlign: "center", padding: "3rem 2rem" }}>
@@ -255,10 +466,24 @@ export function DocsPageView() {
   const technical = page.technical_sections || {};
   const architectureDiagram = String((technical as Record<string, unknown>).architecture_diagram || "No architecture diagram");
   const dataFlowDiagram = String((technical as Record<string, unknown>).data_flow_diagram || "No data flow diagram");
+  const provenance = resolveProvenanceLists(technical as Record<string, unknown>);
+  const metrics = resolveMetrics(liveData.metrics);
+  const placeholderTeam =
+    (page.team_members || []).length === 1 &&
+    page.team_members?.[0]?.email === "team@jachaix.local";
+  const teamMembers = placeholderTeam || !(page.team_members || []).length
+    ? DEFAULT_PROJECT_TEAM_MEMBERS
+    : (page.team_members || []);
 
   return (
     <main className="page-shell">
       <section className="hero-card reveal docs-hero">
+        {blocked && (
+          <div className="docs-warning-banner">
+            {tx({ en: "Docs API issue detected. Showing fallback frontend content so documentation remains visible.", bn: "ডকস API সমস্যা পাওয়া গেছে। ডকুমেন্টেশন দৃশ্যমান রাখতে fallback frontend কনটেন্ট দেখানো হচ্ছে।" })}
+            {visibility ? ` (${tx({ en: "Visibility", bn: "ভিজিবিলিটি" })}: ${visibility.is_enabled ? "ON" : "OFF"})` : ""}
+          </div>
+        )}
         <div className="hero-top">
           <p className="eyebrow">{tx({ en: "Interactive Live Docs", bn: "ইন্টারঅ্যাকটিভ লাইভ ডকস" })}</p>
           <div className="live-pill">v{page.version}</div>
@@ -319,6 +544,7 @@ export function DocsPageView() {
             ))}
             <option value="architecture">{tx({ en: "Architecture details", bn: "আর্কিটেকচার বিবরণ" })}</option>
             <option value="api">{tx({ en: "API documentation", bn: "API ডকুমেন্টেশন" })}</option>
+            <option value="provenance">{tx({ en: "Data & AI provenance", bn: "ডেটা ও এআই প্রোভেন্যান্স" })}</option>
             <option value="team">{tx({ en: "Team members", bn: "টিম মেম্বার" })}</option>
             <option value="events">{tx({ en: "Recent pipeline events", bn: "সাম্প্রতিক পাইপলাইন ইভেন্ট" })}</option>
           </select>
@@ -357,6 +583,9 @@ export function DocsPageView() {
           <a href="#api" className={`docs-sidebar-link ${activeId === "api" ? "active" : ""}`}>
             API Documentation
           </a>
+          <a href="#provenance" className={`docs-sidebar-link ${activeId === "provenance" ? "active" : ""}`}>
+            Data & AI Provenance
+          </a>
           <a href="#team" className={`docs-sidebar-link ${activeId === "team" ? "active" : ""}`}>
             Team
           </a>
@@ -370,13 +599,13 @@ export function DocsPageView() {
           {/* Live System Metrics Section */}
           <section id="metrics" className="panel reveal delay-1" style={{ scrollMarginTop: "100px" }}>
             <h2>Live System Metrics</h2>
-            <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+            <div className="docs-metrics-grid">
               <article className="docs-metric-card">
                 <div className="docs-metric-icon">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 </div>
                 <div className="docs-metric-details">
-                  <span className="docs-metric-number">{liveData.metrics.users}</span>
+                  <span className="docs-metric-number">{metrics.users}</span>
                   <span className="docs-metric-title">Active Users</span>
                 </div>
               </article>
@@ -386,7 +615,7 @@ export function DocsPageView() {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                 </div>
                 <div className="docs-metric-details">
-                  <span className="docs-metric-number">{liveData.metrics.claims_total}</span>
+                  <span className="docs-metric-number">{metrics.claims_total}</span>
                   <span className="docs-metric-title">Claims Total</span>
                 </div>
               </article>
@@ -396,7 +625,7 @@ export function DocsPageView() {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 11.08 22 12 12 22 2 12 12 2 19 2"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                 </div>
                 <div className="docs-metric-details">
-                  <span className="docs-metric-number">{liveData.metrics.claims_completed}</span>
+                  <span className="docs-metric-number">{metrics.claims_completed}</span>
                   <span className="docs-metric-title">Completed</span>
                 </div>
               </article>
@@ -406,7 +635,7 @@ export function DocsPageView() {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                 </div>
                 <div className="docs-metric-details">
-                  <span className="docs-metric-number">{liveData.metrics.published_fact_checks}</span>
+                  <span className="docs-metric-number">{metrics.published_fact_checks}</span>
                   <span className="docs-metric-title">Published Fact Checks</span>
                 </div>
               </article>
@@ -509,12 +738,47 @@ export function DocsPageView() {
             </div>
           </section>
 
+          {/* Data & AI Provenance */}
+          <section id="provenance" className="panel reveal" style={{ scrollMarginTop: "100px" }}>
+            <h2>Data & AI Provenance</h2>
+            <p className="muted" style={{ marginBottom: "1rem" }}>
+              Data sources, model stack, and responsible AI controls used in JachaiX.
+            </p>
+
+            <article className="docs-section-card" style={{ marginBottom: "1rem" }}>
+              <h3>Data Sources</h3>
+              <ul style={{ margin: "0.6rem 0 0", paddingLeft: "1.2rem", display: "grid", gap: "0.4rem" }}>
+                {provenance.dataSources.map((item, idx) => (
+                  <li key={`ds-${idx}`}>{item}</li>
+                ))}
+              </ul>
+            </article>
+
+            <article className="docs-section-card" style={{ marginBottom: "1rem" }}>
+              <h3>AI Models</h3>
+              <ul style={{ margin: "0.6rem 0 0", paddingLeft: "1.2rem", display: "grid", gap: "0.4rem" }}>
+                {provenance.aiModels.map((item, idx) => (
+                  <li key={`am-${idx}`}>{item}</li>
+                ))}
+              </ul>
+            </article>
+
+            <article className="docs-section-card">
+              <h3>Responsible AI</h3>
+              <ul style={{ margin: "0.6rem 0 0", paddingLeft: "1.2rem", display: "grid", gap: "0.4rem" }}>
+                {provenance.responsibleAi.map((item, idx) => (
+                  <li key={`ra-${idx}`}>{item}</li>
+                ))}
+              </ul>
+            </article>
+          </section>
+
           {/* Team Section */}
           <section id="team" className="panel reveal" style={{ scrollMarginTop: "100px" }}>
             <h2>Project Team</h2>
             <p className="muted" style={{ marginBottom: "1.25rem" }}>{page.team_name || "Team members list"}</p>
             <div className="team-grid">
-              {(page.team_members || []).map((member) => (
+              {teamMembers.map((member) => (
                 <article className="team-card" key={`${member.name}-${member.email}`}>
                   <div className="team-avatar-wrap">
                     {member.image_url ? (

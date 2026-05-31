@@ -9,6 +9,125 @@ import {
 } from "@/lib/api";
 import type { DocsPageData, DocsPitchSection, DocsTeamMember, DocsVisibility } from "@/lib/types";
 
+const DEFAULT_PROJECT_PITCH_SECTIONS: DocsPitchSection[] = [
+  {
+    id: "problem",
+    title: "Problem",
+    content:
+      "Misinformation spreads quickly across text, screenshots, and reposted media while verification remains slow.",
+  },
+  {
+    id: "solution",
+    title: "Solution",
+    content:
+      "JachaiX provides OCR + retrieval + explainable verdicting with source links and reviewer escalation.",
+  },
+  {
+    id: "demo",
+    title: "Product Demo",
+    content:
+      "Submit text/image/PDF claims and get evidence-backed verdicts with confidence and sources.",
+  },
+  {
+    id: "advantage",
+    title: "Unique Advantage",
+    content: "Bangla-first design with extensible architecture for international scale.",
+  },
+];
+
+const DEFAULT_PROJECT_TEAM: DocsTeamMember[] = [
+  {
+    name: "BD Zamila Mohammad",
+    role: "Leader - Presentation / Communication Lead, Business Analyst / Data Scientist",
+    email: "zamila@jachaix.team",
+    image_url: null,
+  },
+  {
+    name: "BD Samanta Islam",
+    role: "Member - Backend / Database / Scraper Engineer, UI/UX / Frontend Developer",
+    email: "samanta@jachaix.team",
+    image_url: null,
+  },
+  {
+    name: "BD Humayra Binte Kazal",
+    role: "Member - Backend / Database / Scraper Engineer, Team Leader / Project Coordinator",
+    email: "humayra@jachaix.team",
+    image_url: null,
+  },
+  {
+    name: "BD Asmita Guha Thakurta",
+    role: "Member - UI/UX / Frontend Developer, Backend / Database / Scraper Engineer",
+    email: "asmita@jachaix.team",
+    image_url: null,
+  },
+];
+
+const DEFAULT_PROJECT_TECHNICAL = {
+  architecture_diagram:
+    "flowchart LR\\nUI[Next.js UI] --> API[Laravel API]\\nAPI --> Q[Queue Worker]\\nQ --> OCR[OCR Service]\\nQ --> EMB[Embedder Service]\\nQ --> RERANK[Reranker Service]\\nQ --> DB[(MySQL)]\\nEMB --> VDB[(Vector Index)]",
+  data_flow_diagram:
+    "flowchart LR\\nIN[Input] --> NORM[Normalization/OCR]\\nNORM --> RET[Retrieval]\\nRET --> RERANK[Rerank]\\nRERANK --> LLM[Verdict Generation]\\nLLM --> OUT[Result + Sources]\\nOUT --> FB[Human Review Feedback]",
+  provenance_data_sources: [
+    "Public fact-check and news corpus from trusted outlets (Bangla + English).",
+    "Normalized corpus data under crawler/chunker pipelines.",
+    "OCR outputs, retrieved evidence snippets, and decision traces from verification jobs.",
+    "Operational metadata from claims, audits, and publication workflows.",
+    "Vectorized evidence knowledge base indexed for semantic retrieval.",
+  ],
+  provenance_ai_models: [
+    "LLM-based claim analysis via configurable OpenAI-compatible endpoints.",
+    "RAG stack with embedder + Qdrant retrieval + reranker services.",
+    "OCR services for image and PDF extraction.",
+    "Rule-assisted backend calibration for evidence-grounded verdict quality.",
+    "Multilingual processing support for Bangla and English claims.",
+  ],
+  provenance_responsible_ai: [
+    "Evidence-first verdicting with transparent source references.",
+    "Conservative uncertainty handling with unverified fallback.",
+    "Human review path for low-confidence and disputed outputs.",
+    "Auditability through claim/job/event metadata tracking.",
+    "Safety checks for contradiction and canonical fact alignment.",
+  ],
+};
+
+function buildAdminFallbackPageData(): DocsPageData {
+  return {
+    team_name: "JachaiX Core Team",
+    pitch_sections: DEFAULT_PROJECT_PITCH_SECTIONS,
+    technical_sections: DEFAULT_PROJECT_TECHNICAL,
+    team_members: DEFAULT_PROJECT_TEAM,
+    updated_by: "frontend_fallback",
+    version: 1,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function resolveAdminPageData(page: DocsPageData): DocsPageData {
+  const fallback = buildAdminFallbackPageData();
+  const technical = page.technical_sections || {};
+  const hasTechnical = Object.keys(technical).length > 0;
+  const teamMembers = page.team_members || [];
+
+  return {
+    ...page,
+    team_name: page.team_name?.trim() ? page.team_name : fallback.team_name,
+    pitch_sections: page.pitch_sections?.length ? page.pitch_sections : fallback.pitch_sections,
+    technical_sections: hasTechnical
+      ? { ...(fallback.technical_sections || {}), ...technical }
+      : fallback.technical_sections,
+    team_members: teamMembers.length ? teamMembers : fallback.team_members,
+  };
+}
+
+function buildAdminFallbackVisibility(): DocsVisibility {
+  return {
+    is_enabled: true,
+    available_from: null,
+    available_until: null,
+    is_visible_now: true,
+  };
+}
+
 function isTransientNetworkError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   const message = error.message.toLowerCase();
@@ -49,12 +168,14 @@ export function AdminDocsPageView() {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         const res = await getAdminDocs();
-        setPage(res.page);
+        const resolvedPage = resolveAdminPageData(res.page);
+
+        setPage(resolvedPage);
         setVisibility(res.visibility);
-        setTeamName(res.page.team_name || "");
-        setPitchSections(res.page.pitch_sections || []);
-        setTeamMembers(res.page.team_members || []);
-        setTechnicalJson(JSON.stringify(res.page.technical_sections || {}, null, 2));
+        setTeamName(resolvedPage.team_name || "");
+        setPitchSections(resolvedPage.pitch_sections || []);
+        setTeamMembers(resolvedPage.team_members || []);
+        setTechnicalJson(JSON.stringify(resolvedPage.technical_sections || {}, null, 2));
         setAvailableFrom(toLocalInput(res.visibility.available_from));
         setAvailableUntil(toLocalInput(res.visibility.available_until));
         break;
@@ -63,13 +184,23 @@ export function AdminDocsPageView() {
           continue;
         }
 
-        setMsgType("error");
+        const fallbackPage = buildAdminFallbackPageData();
+        const fallbackVisibility = buildAdminFallbackVisibility();
+
+        setPage(fallbackPage);
+        setVisibility(fallbackVisibility);
+        setTeamName(fallbackPage.team_name || "");
+        setPitchSections(fallbackPage.pitch_sections || []);
+        setTeamMembers(fallbackPage.team_members || []);
+        setTechnicalJson(JSON.stringify(fallbackPage.technical_sections || {}, null, 2));
+        setAvailableFrom("");
+        setAvailableUntil("");
+
+        setMsgType("info");
         setMessage(
           isTransientNetworkError(error)
-            ? "Admin docs data is temporarily unavailable. Please refresh and try again."
-            : error instanceof Error
-              ? error.message
-              : "Failed to load docs admin page."
+            ? "Backend unavailable. Loaded project documentation defaults in frontend mode."
+            : "Loaded frontend fallback documentation defaults."
         );
         break;
       }
@@ -508,7 +639,7 @@ export function AdminDocsPageView() {
           Technical Diagrams & Whitepaper Data (JSON)
         </h2>
         <p className="muted" style={{ fontSize: "0.85rem", marginTop: "-0.5rem" }}>
-          Customize your architecture_diagram and data_flow_diagram strings in this JSON block.
+          Customize technical fields in this JSON block. For live provenance on public docs, use: provenance_data_sources (array), provenance_ai_models (array), and provenance_responsible_ai (array).
         </p>
         <textarea
           rows={12}
