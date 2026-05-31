@@ -30,6 +30,11 @@ if ($LASTEXITCODE -ne 0) {
     throw "Multilingual slice regression failed with exit code $LASTEXITCODE"
 }
 
+$EvalStorage = "e:/jachaix/backend/storage/app/evaluation"
+New-Item -ItemType Directory -Force -Path $EvalStorage | Out-Null
+Copy-Item -Force "e:/jachaix/scripts/eval_human_latest.json" "$EvalStorage/eval_human_latest.json"
+Copy-Item -Force "e:/jachaix/scripts/eval_multilingual_slice_results.json" "$EvalStorage/eval_multilingual_slice_results.json"
+
 Write-Host "Regression suite completed." -ForegroundColor Green
 
 & $PythonExe "e:/jachaix/scripts/assert_quality_gate.py" `

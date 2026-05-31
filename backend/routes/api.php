@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ClaimController;
 use App\Http\Controllers\DocsController;
+use App\Http\Controllers\EvaluationController;
 use App\Http\Controllers\PublicFactCheckController;
 use Illuminate\Support\Facades\Route;
 
@@ -46,6 +47,9 @@ Route::prefix('v1')->group(function () {
     Route::patch('/admin/docs', [DocsController::class, 'update']);
     Route::post('/admin/docs/visibility', [DocsController::class, 'updateVisibility']);
     Route::post('/admin/docs/schedule', [DocsController::class, 'updateSchedule']);
+
+    // Evaluation metrics (latest benchmark reports)
+    Route::get('/admin/evaluation/latest', [EvaluationController::class, 'latest']);
 
     Route::get('/knowledge-base/status', function () {
         $statusPath = storage_path('app/knowledge_base_refresh.json');

@@ -164,3 +164,27 @@ export interface DocsLiveData {
     created_at: string | null;
   }>;
 }
+
+export interface EvalMetricsSummary {
+  generated_at_unix: number;
+  input: string;
+  samples_total: number;
+  samples_scored: number;
+  accuracy: number;
+  macro_precision: number;
+  macro_recall: number;
+  macro_f1: number;
+}
+
+export interface LatestEvaluationMetrics {
+  success: boolean;
+  available: boolean;
+  latest: null | {
+    name: "human" | "multilingual";
+    summary: EvalMetricsSummary;
+  };
+  reports: {
+    human: EvalMetricsSummary | null;
+    multilingual: EvalMetricsSummary | null;
+  };
+}

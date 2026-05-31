@@ -2,6 +2,7 @@ import {
   AdminCompletedClaimItem,
   ClaimResult,
   ClaimStatusResponse,
+  LatestEvaluationMetrics,
   DocsLiveData,
   DocsPageData,
   DocsTeamMember,
@@ -25,8 +26,50 @@ async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}
 
 async function parseJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const fallback = await response.text();
-    throw new Error(`API ${response.status}: ${fallback || response.statusText}`);
+    const contentType = (response.headers.get("content-type") || "").toLowerCase();
+    const status = response.status;
+
+    let message = `API request failed (${status} ${response.statusText || "error"})`;
+
+    if (contentType.includes("application/json")) {
+      try {
+        const payload = (await response.json()) as {
+          message?: string;
+          error?: string;
+          errors?: Record<string, string[] | string>;
+        };
+
+        if (payload?.message) {
+          message = payload.message;
+        } else if (payload?.error) {
+          message = payload.error;
+        } else if (payload?.errors) {
+          const firstField = Object.keys(payload.errors)[0];
+          const firstValue = firstField ? payload.errors[firstField] : undefined;
+          if (Array.isArray(firstValue) && firstValue.length) {
+            message = String(firstValue[0]);
+          } else if (typeof firstValue === "string" && firstValue.trim()) {
+            message = firstValue;
+          }
+        }
+      } catch {
+        // Ignore malformed JSON and fall back to status-driven message.
+      }
+    } else {
+      const body = (await response.text()).trim();
+      const looksLikeHtml = /^\s*<(!doctype|html|head|body)/i.test(body) || /<title>.*<\/title>/i.test(body);
+
+      if (!looksLikeHtml && body) {
+        const singleLine = body.replace(/\s+/g, " ").slice(0, 220);
+        message = singleLine;
+      }
+    }
+
+    if (status === 502 || status === 503 || status === 504) {
+      message = "Service temporarily unavailable (gateway error). Please retry in a moment.";
+    }
+
+    throw new Error(message);
   }
   return (await response.json()) as T;
 }
@@ -310,4 +353,13 @@ export async function setAdminDocsSchedule(payload: {
     page: DocsPageData;
     visibility: DocsVisibility;
   }>(response);
+}
+
+export async function getLatestEvaluationMetrics() {
+  const response = await fetchWithTimeout(`${BASE}/admin/evaluation/latest`, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  return parseJson<LatestEvaluationMetrics>(response);
 }

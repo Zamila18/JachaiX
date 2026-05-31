@@ -1,6 +1,7 @@
 "use client";
 
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
+import { EvaluationMetricsPanel } from "@/components/dashboard/EvaluationMetricsPanel";
 import { KPICards } from "@/components/dashboard/KPICards";
 import { ModuleGrid } from "@/components/dashboard/ModuleGrid";
 import { useLanguage } from "@/lib/i18n";
@@ -19,6 +20,8 @@ export function DashboardContent() {
       </section>
 
       <KPICards />
+
+      <EvaluationMetricsPanel />
 
       <div className="dashboard-columns">
         <ModuleGrid />
