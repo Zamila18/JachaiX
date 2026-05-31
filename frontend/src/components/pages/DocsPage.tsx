@@ -104,6 +104,7 @@ const DEFAULT_FALLBACK_APIS = [
   { method: "GET", path: "/api/v1/docs" },
 ];
 
+
 function buildFallbackDocsPageData(): DocsPageData {
   return {
     team_name: "JachaiX Core Team",
