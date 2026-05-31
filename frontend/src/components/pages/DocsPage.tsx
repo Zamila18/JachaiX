@@ -191,6 +191,14 @@ function resolveProvenanceLists(technicalSections: Record<string, unknown>) {
   };
 }
 
+function normalizeDiagramText(value: unknown, fallbackText: string): string {
+  const raw = String(value || fallbackText);
+  return raw
+    .replace(/\\r\\n/g, "\n")
+    .replace(/\\n/g, "\n")
+    .replace(/\\t/g, "\t");
+}
+
 function isTransientNetworkError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   const message = error.message.toLowerCase();
@@ -465,8 +473,14 @@ export function DocsPageView() {
   }
 
   const technical = page.technical_sections || {};
-  const architectureDiagram = String((technical as Record<string, unknown>).architecture_diagram || "No architecture diagram");
-  const dataFlowDiagram = String((technical as Record<string, unknown>).data_flow_diagram || "No data flow diagram");
+  const architectureDiagram = normalizeDiagramText(
+    (technical as Record<string, unknown>).architecture_diagram,
+    "No architecture diagram"
+  );
+  const dataFlowDiagram = normalizeDiagramText(
+    (technical as Record<string, unknown>).data_flow_diagram,
+    "No data flow diagram"
+  );
   const provenance = resolveProvenanceLists(technical as Record<string, unknown>);
   const metrics = resolveMetrics(liveData.metrics);
   const placeholderTeam =
