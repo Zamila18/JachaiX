@@ -250,3 +250,11 @@ docker compose up -d --build mcp-server mcp-ops-server mcp-docs-server
 Detailed tool inventory and integration notes:
 
 - `docs/mcp-servers.md`
+
+## 🤖 GitHub Copilot Integration
+
+This project uses GitHub Copilot to accelerate development. See our guides:
+- [Complete Integration Guide](docs/COPILOT_GUIDE.md)
+- [Workflows](docs/COPILOT_WORKFLOWS.md)
+- [Best Practices](docs/COPILOT_BEST_PRACTICES.md)
+- [Quick Reference](docs/COPILOT_QUICK_REFERENCE.md)

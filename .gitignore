@@ -16,9 +16,11 @@ qdrant_data/
 Thumbs.db
 
 # IDE
-.idea/
-.vscode/
- 
+.idea/*
+.vscode/*
+!.idea/copilot-settings.xml
+!.vscode/settings.json
+  
  
 # Python
 services/*/.env
