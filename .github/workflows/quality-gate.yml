@@ -25,6 +25,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
 
+      - name: Prepare env files
+        run: |
+          [ -f .env ] || cp .env.example .env
+          [ -f backend/.env ] || cp backend/.env.example backend/.env
+
       - name: Start stack
         run: docker compose up -d --build
 
