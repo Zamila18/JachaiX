@@ -27,8 +27,8 @@ jobs:
 
       - name: Prepare env files
         run: |
-          [ -f .env ] || cp .env.example .env
-          [ -f backend/.env ] || cp backend/.env.example backend/.env
+          test -f .env || cp .env.example .env
+          test -f backend/.env || cp backend/.env.example backend/.env
 
       - name: Start stack
         run: docker compose up -d --build
