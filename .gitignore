@@ -20,8 +20,8 @@ Thumbs.db
 .vscode/*
 !.idea/copilot-settings.xml
 !.vscode/settings.json
-  
- 
+
+
 # Python
 services/*/.env
 services/*/__pycache__/

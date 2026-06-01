@@ -84,6 +84,9 @@ flowchart TD
     B -->|Mobile/On-the-go| F[Copilot Chat in GitHub Mobile]
     B -->|Quick Question| G[Copilot Dashboard Entry Point]
     B -->|Complex Multi-step| H[Copilot Cloud Agent]
+    D --> I
+    F --> I
+    G --> K
     C --> I{Need project memory?}
     E --> I
     H --> I
