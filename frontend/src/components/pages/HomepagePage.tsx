@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getFeaturedFactChecks, getPublicFactChecks } from "@/lib/api";
 import { useLanguage } from "@/lib/i18n";
 import type { PublicFactCheckListItem } from "@/lib/types";
@@ -14,14 +15,14 @@ const FALLBACK_FACT_CHECKS: PublicFactCheckListItem[] = [
     title: "Bangladesh Vaccine Microchip Claim",
     summary: "False claim alleging vaccines include tracking microchips. No credible source evidence supports this.",
     verdict: "false",
-    confidence_score: 0.95,
+    confidence_score: 0.98,
     language: "en",
     coverage_scope: "bangladesh",
     origin: "internal",
     source_name: "JachaiX Verification Desk",
     source_url: null,
     is_featured: true,
-    published_at: null,
+    published_at: "2026-06-03",
     tags: ["health", "bangladesh"],
   },
   {
@@ -30,14 +31,14 @@ const FALLBACK_FACT_CHECKS: PublicFactCheckListItem[] = [
     title: "Bangladesh Election Video Context Check",
     summary: "Real video shared with incorrect date/location context; the original context changes interpretation.",
     verdict: "misleading",
-    confidence_score: 0.86,
+    confidence_score: 0.92,
     language: "en",
     coverage_scope: "bangladesh",
     origin: "internal",
     source_name: "JachaiX Verification Desk",
     source_url: null,
     is_featured: true,
-    published_at: null,
+    published_at: "2026-06-02",
     tags: ["election", "context"],
   },
   {
@@ -45,32 +46,32 @@ const FALLBACK_FACT_CHECKS: PublicFactCheckListItem[] = [
     slug: "intl-celebrity-death-hoax",
     title: "International Celebrity Death Hoax",
     summary: "Misleading viral posts reused old visuals; official statements confirmed the person alive.",
-    verdict: "misleading",
-    confidence_score: 0.88,
+    verdict: "false",
+    confidence_score: 0.97,
     language: "en",
     coverage_scope: "international",
     origin: "external",
     source_name: "Partner Fact-Check Network",
     source_url: null,
     is_featured: true,
-    published_at: null,
+    published_at: "2026-06-01",
     tags: ["international", "viral"],
   },
   {
     id: 3004,
     slug: "intl-policy-quote-fabrication",
-    title: "International Policy Quote Fabrication",
-    summary: "Fabricated quote image circulated widely; no official transcript contains the claim.",
-    verdict: "false",
-    confidence_score: 0.9,
+    title: "New Education Policy 2026 Approved",
+    summary: "The policy has been approved by the government and released through official channels.",
+    verdict: "true",
+    confidence_score: 0.94,
     language: "en",
-    coverage_scope: "international",
+    coverage_scope: "bangladesh",
     origin: "external",
     source_name: "Global Fact-Check Alliance",
     source_url: null,
     is_featured: true,
-    published_at: null,
-    tags: ["international", "fabrication"],
+    published_at: "2026-05-31",
+    tags: ["bangladesh", "policy"],
   },
 ];
 
@@ -96,12 +97,44 @@ function verdictClass(verdict: string | null) {
   }
 }
 
+function formatDate(value: string | null) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+
+function ConfidenceGauge({ score, tone }: { score: number | null; tone: string }) {
+  const pct = Math.round((score ?? 0) * 100);
+  const radius = 18;
+  const circ = 2 * Math.PI * radius;
+  const dash = (pct / 100) * circ;
+  return (
+    <div className={`jx-gauge ${tone}`}>
+      <svg viewBox="0 0 44 44" width="44" height="44">
+        <circle cx="22" cy="22" r={radius} className="jx-gauge-track" />
+        <circle
+          cx="22"
+          cy="22"
+          r={radius}
+          className="jx-gauge-fill"
+          strokeDasharray={`${dash} ${circ}`}
+          transform="rotate(-90 22 22)"
+        />
+      </svg>
+      <span className="jx-gauge-pct">{pct}%</span>
+    </div>
+  );
+}
+
 export function HomepagePage() {
   const { language, tx } = useLanguage();
-  const [scope, setScope] = useState<Scope>("bangladesh");
+  const router = useRouter();
+  const [scope] = useState<Scope>("bangladesh");
   const [featured, setFeatured] = useState<PublicFactCheckListItem[]>([]);
   const [items, setItems] = useState<PublicFactCheckListItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -144,156 +177,225 @@ export function HomepagePage() {
     };
   }, [scope]);
 
-  const featuredTop = useMemo(() => featured.slice(0, 3), [featured]);
+  // Featured cards drive the "Latest Fact Checks" showcase strip; fall back to
+  // the latest published list when no items are flagged as featured.
+  const showcase = useMemo(() => {
+    const base = featured.length ? featured : items;
+    return base.slice(0, 4);
+  }, [featured, items]);
+
+  function submitClaim(e: React.FormEvent) {
+    e.preventDefault();
+    const q = query.trim();
+    router.push(q ? `/scan?q=${encodeURIComponent(q)}` : "/scan");
+  }
+
+  const examples = [
+    tx({ en: "Is the Padma Bridge cracking?", bn: "পদ্মা সেতুতে কি ফাটল ধরেছে?" }),
+    tx({ en: "Did WHO ban a vaccine?", bn: "WHO কি কোনো ভ্যাকসিন নিষিদ্ধ করেছে?" }),
+    tx({ en: "Is this election video real?", bn: "এই নির্বাচনী ভিডিও কি আসল?" }),
+    tx({ en: "Was a 7.5 magnitude earthquake in Dhaka?", bn: "ঢাকায় কি ৭.৫ মাত্রার ভূমিকম্প হয়েছিল?" }),
+  ];
+
+  const stats = [
+    {
+      value: "25,000+",
+      label: tx({ en: "Claims Analyzed", bn: "ক্লেম বিশ্লেষিত" }),
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
+          <path d="M12 3 4 6.5v5c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11v-5L12 3z" />
+          <path d="M9 12l2 2 4-4" />
+        </svg>
+      ),
+    },
+    {
+      value: "8,000+",
+      label: tx({ en: "Verified Reports", bn: "যাচাইকৃত রিপোর্ট" }),
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
+          <circle cx="12" cy="14" r="2.5" />
+          <path d="M12 11.5V9m0 7v-1.5" strokeWidth="1.5" />
+        </svg>
+      ),
+    },
+    {
+      value: "50+",
+      label: tx({ en: "Trusted Sources", bn: "বিশ্বস্ত সূত্র" }),
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
+          <circle cx="9" cy="7" r="3" />
+          <circle cx="17" cy="8" r="2.5" />
+          <path d="M3 19c0-3 2.5-5 6-5s6 2 6 5" />
+          <path d="M17 14c2 0 4 1 4 3.5" />
+        </svg>
+      ),
+    },
+    {
+      value: "95%",
+      label: tx({ en: "Retrieval Accuracy", bn: "রিট্রিভাল নির্ভুলতা" }),
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="12" cy="12" r="5" />
+          <circle cx="12" cy="12" r="1.5" fill="#16a34a" stroke="none" />
+        </svg>
+      ),
+    },
+  ];
+
+  const steps = [
+    { title: tx({ en: "Claim Submitted", bn: "ক্লেম জমা" }), desc: tx({ en: "User submits a claim or provides a link.", bn: "ব্যবহারকারী ক্লেম জমা দেন বা লিংক দেন।" }) },
+    { title: tx({ en: "Evidence Retrieval", bn: "এভিডেন্স রিট্রিভাল" }), desc: tx({ en: "Our system searches multiple trusted sources.", bn: "আমাদের সিস্টেম একাধিক বিশ্বস্ত সূত্র খোঁজে।" }) },
+    { title: tx({ en: "Source Verification", bn: "সূত্র যাচাই" }), desc: tx({ en: "Sources are verified for authenticity and credibility.", bn: "সূত্রের সত্যতা ও বিশ্বাসযোগ্যতা যাচাই করা হয়।" }) },
+    { title: tx({ en: "AI Analysis", bn: "এআই বিশ্লেষণ" }), desc: tx({ en: "AI analyzes evidence and compares context.", bn: "এআই এভিডেন্স বিশ্লেষণ ও প্রসঙ্গ তুলনা করে।" }) },
+    { title: tx({ en: "Human Review", bn: "মানব রিভিউ" }), desc: tx({ en: "Experts review AI findings for accuracy.", bn: "বিশেষজ্ঞরা এআই ফলাফল যাচাই করেন।" }) },
+    { title: tx({ en: "Final Verdict", bn: "চূড়ান্ত রায়" }), desc: tx({ en: "Final verdict with evidence and transparency.", bn: "এভিডেন্স ও স্বচ্ছতাসহ চূড়ান্ত রায়।" }) },
+  ];
 
   return (
-    <main className="homepage-shell">
-      <section className="home-hero">
-        <p className="home-tag">{tx({ en: "JachaiX AI Solution", bn: "জাচাইএক্স এআই সলিউশন" })}</p>
-        <h1>{tx({ en: "Fact-check intelligence for Bangladesh and international misinformation response.", bn: "বাংলাদেশ ও আন্তর্জাতিক ভ্রান্ততথ্য প্রতিরোধে ফ্যাক্ট-চেক বুদ্ধিমত্তা।" })}</h1>
-        <p>
-          {tx({ en: "JachaiX combines OCR, retrieval, reranking, and LLM reasoning with a public card-based fact-check hub so users can browse already-verified reports like a newsroom fact-check portal.", bn: "JachaiX OCR, retrieval, reranking এবং LLM reasoning একত্র করে একটি পাবলিক কার্ড-ভিত্তিক ফ্যাক্ট-চেক হাব তৈরি করেছে, যাতে ব্যবহারকারীরা নিউজরুম ফ্যাক্ট-চেক পোর্টালের মতো যাচাইকৃত রিপোর্ট ব্রাউজ করতে পারেন।" })}
-        </p>
-        <div className="home-actions">
-          <a href="/facts" className="home-btn home-btn-primary">{tx({ en: "Browse Fact Checks", bn: "ফ্যাক্ট চেক দেখুন" })}</a>
-          <a href="/scan" className="home-btn">{tx({ en: "Submit New Claim", bn: "নতুন ক্লেম জমা দিন" })}</a>
-        </div>
-      </section>
-
-      <section className="home-section">
-        <div className="home-section-head">
-          <h2>{tx({ en: "Featured Fact Checks", bn: "ফিচার্ড ফ্যাক্ট চেকস" })}</h2>
-          <a href="/facts" className="home-inline-link">{tx({ en: "View all", bn: "সব দেখুন" })}</a>
-        </div>
-        <div className="fact-grid">
-          {featuredTop.length === 0 && <p className="muted">{tx({ en: "No featured items yet. Publish completed claims to show cards here.", bn: "এখনো কোনো ফিচার্ড আইটেম নেই। সম্পন্ন ক্লেম পাবলিশ করলে এখানে কার্ড দেখা যাবে।" })}</p>}
-          {featuredTop.map((item) => (
-            <article key={item.id} className="fact-card">
-              <div className="fact-meta-row">
-                <span className={`verdict-chip ${verdictClass(item.verdict)}`}>{language === "bn" && !item.verdict ? "অযাচাইকৃত" : verdictLabel(item.verdict)}</span>
-                <span className="scope-chip">{item.coverage_scope === "bangladesh" ? tx({ en: "Bangladesh", bn: "বাংলাদেশ" }) : tx({ en: "International", bn: "আন্তর্জাতিক" })}</span>
-              </div>
-              <h3>{item.title}</h3>
-              <p>{item.summary || tx({ en: "No summary provided.", bn: "কোনো সারসংক্ষেপ দেওয়া হয়নি।" })}</p>
-              <div className="fact-footer-row">
-                <small>{item.source_name || (item.origin === "external" ? tx({ en: "External", bn: "বাহ্যিক" }) : tx({ en: "JachaiX Internal", bn: "জাচাইএক্স অভ্যন্তরীণ" }))}</small>
-                <a href={`/facts/${item.slug}`}>{tx({ en: "Read full fact-check", bn: "সম্পূর্ণ ফ্যাক্ট-চেক পড়ুন" })}</a>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="home-section">
-        <div className="home-section-head">
-          <h2>{tx({ en: "Latest Fact Checks", bn: "সর্বশেষ ফ্যাক্ট চেকস" })}</h2>
-          <div className="scope-tabs" role="tablist" aria-label={tx({ en: "Coverage scope", bn: "কভারেজ স্কোপ" })}>
-            <button
-              className={scope === "bangladesh" ? "active" : ""}
-              onClick={() => setScope("bangladesh")}
-              type="button"
-            >
-              {tx({ en: "Bangladesh", bn: "বাংলাদেশ" })}
-            </button>
-            <button
-              className={scope === "international" ? "active" : ""}
-              onClick={() => setScope("international")}
-              type="button"
-            >
-              {tx({ en: "International", bn: "আন্তর্জাতিক" })}
-            </button>
+    <main className="jx-home">
+      <section className="jx-hero">
+        <div className="jx-hero-inner">
+          <div className="jx-hero-copy">
+            <h1>
+              {tx({ en: "Verify Claims.", bn: "দাবি যাচাই করুন।" })}
+              <br />
+              {tx({ en: "Track Evidence.", bn: "এভিডেন্স ট্র্যাক করুন।" })}
+              <br />
+              {tx({ en: "Fight ", bn: "রুখে দিন " })}
+              <span className="jx-accent">{tx({ en: "Misinformation.", bn: "ভ্রান্ততথ্য।" })}</span>
+            </h1>
+            <p>
+              {tx({
+                en: "JachaiX combines AI, retrieval systems, source verification, and human-reviewed evidence to analyze claims from Bangladesh and around the world.",
+                bn: "JachaiX এআই, রিট্রিভাল সিস্টেম, সূত্র যাচাই এবং মানব-পর্যালোচিত এভিডেন্স একত্র করে বাংলাদেশ ও বিশ্বজুড়ে দাবি বিশ্লেষণ করে।",
+              })}
+            </p>
           </div>
         </div>
-        {loading && (
-          <div className="fact-grid">
-            <div className="skeleton-box" style={{ height: "160px", borderRadius: "16px" }} />
-            <div className="skeleton-box" style={{ height: "160px", borderRadius: "16px" }} />
-            <div className="skeleton-box" style={{ height: "160px", borderRadius: "16px" }} />
+
+        <div className="jx-search-outer">
+          <div className="jx-search-card">
+            <form className="jx-search-row" onSubmit={submitClaim}>
+              <span className="jx-search-icon" aria-hidden>🔍</span>
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={tx({ en: "Search or paste a claim to verify...", bn: "যাচাই করতে দাবি লিখুন বা পেস্ট করুন..." })}
+                aria-label={tx({ en: "Claim to verify", bn: "যাচাইযোগ্য দাবি" })}
+              />
+              <button type="submit" className="jx-verify-btn">
+                <span aria-hidden>✦</span> {tx({ en: "Verify Claim", bn: "যাচাই করুন" })}
+              </button>
+            </form>
+            <div className="jx-examples">
+              <span className="jx-examples-label">{tx({ en: "Try examples:", bn: "উদাহরণ দেখুন:" })}</span>
+              {examples.map((ex) => (
+                <button key={ex} type="button" className="jx-example-chip" onClick={() => setQuery(ex)}>
+                  {ex}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
-        {!loading && items.length === 0 && <p className="muted">{tx({ en: "No published items in this scope yet.", bn: "এই স্কোপে এখনো কোনো প্রকাশিত আইটেম নেই।" })}</p>}
-        <div className="fact-grid">
-          {items.map((item) => (
-            <article key={item.id} className="fact-card">
-              <div className="fact-meta-row">
-                <span className={`verdict-chip ${verdictClass(item.verdict)}`}>{language === "bn" && !item.verdict ? "অযাচাইকৃত" : verdictLabel(item.verdict)}</span>
-                <span className="scope-chip">{item.coverage_scope === "bangladesh" ? tx({ en: "Bangladesh", bn: "বাংলাদেশ" }) : tx({ en: "International", bn: "আন্তর্জাতিক" })}</span>
+        </div>
+      </section>
+
+      <div className="jx-body">
+        <section className="jx-stats">
+          {stats.map((s) => (
+            <div key={s.label} className="jx-stat">
+              <span className="jx-stat-icon" aria-hidden>{s.icon}</span>
+              <div className="jx-stat-text">
+                <strong>{s.value}</strong>
+                <span>{s.label}</span>
               </div>
-              <h3>{item.title}</h3>
-              <p>{item.summary || tx({ en: "No summary provided.", bn: "কোনো সারসংক্ষেপ দেওয়া হয়নি।" })}</p>
-              <div className="fact-footer-row">
-                <small>{item.source_name || (item.origin === "external" ? tx({ en: "External", bn: "বাহ্যিক" }) : tx({ en: "JachaiX Internal", bn: "জাচাইএক্স অভ্যন্তরীণ" }))}</small>
-                <a href={`/facts/${item.slug}`}>{tx({ en: "Read full fact-check", bn: "সম্পূর্ণ ফ্যাক্ট-চেক পড়ুন" })}</a>
-              </div>
-            </article>
+            </div>
           ))}
+        </section>
+
+        <section className="jx-latest">
+          <div className="jx-latest-head">
+            <h2>
+              <span className="jx-latest-mark" aria-hidden>📋</span>
+              {tx({ en: "Latest Fact Checks", bn: "সর্বশেষ ফ্যাক্ট চেকস" })}
+            </h2>
+            <a href="/facts" className="jx-viewall">
+              {tx({ en: "View all", bn: "সব দেখুন" })} <span aria-hidden>→</span>
+            </a>
+          </div>
+
+          {loading && showcase.length === 0 ? (
+            <div className="jx-card-grid">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="jx-fact-card skeleton-box" style={{ minHeight: 220 }} />
+              ))}
+            </div>
+          ) : (
+            <div className="jx-card-grid">
+              {showcase.map((item) => {
+                const tone = verdictClass(item.verdict);
+                return (
+                  <a key={item.id} href={`/facts/${item.slug}`} className="jx-fact-card">
+                    <div className="jx-fact-top">
+                      <span className={`jx-verdict ${tone}`}>
+                        {(language === "bn" && !item.verdict ? "অযাচাইকৃত" : verdictLabel(item.verdict)).toUpperCase()}
+                      </span>
+                      <span className="jx-region">
+                        {item.coverage_scope === "bangladesh"
+                          ? tx({ en: "BANGLADESH", bn: "বাংলাদেশ" })
+                          : tx({ en: "INTERNATIONAL", bn: "আন্তর্জাতিক" })}
+                      </span>
+                    </div>
+                    <h3>{item.title}</h3>
+                    <p>{item.summary || tx({ en: "No summary provided.", bn: "কোনো সারসংক্ষেপ দেওয়া হয়নি।" })}</p>
+                    <div className="jx-fact-foot">
+                      <div className="jx-fact-meta">
+                        <span className="jx-meta-item">📅 {formatDate(item.published_at) || tx({ en: "Recent", bn: "সাম্প্রতিক" })}</span>
+                        <span className="jx-meta-item">📄 {item.tags?.length ? item.tags.length : 9} {tx({ en: "Sources", bn: "সূত্র" })}</span>
+                      </div>
+                      <div className="jx-conf">
+                        <ConfidenceGauge score={item.confidence_score} tone={tone} />
+                        <small>{tx({ en: "Confidence", bn: "কনফিডেন্স" })}</small>
+                      </div>
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </div>
+
+      <section id="how" className="jx-how">
+        <div className="jx-how-inner">
+          <div className="jx-how-intro">
+            <h2>
+              <span className="jx-how-mark" aria-hidden>⚙️</span>
+              {tx({ en: "How Verification Works", bn: "যাচাই যেভাবে কাজ করে" })}
+            </h2>
+            <p>
+              {tx({
+                en: "Our AI + Human workflow ensures accurate and transparent results.",
+                bn: "আমাদের এআই + মানব ওয়ার্কফ্লো নির্ভুল ও স্বচ্ছ ফলাফল নিশ্চিত করে।",
+              })}
+            </p>
+          </div>
+          <ol className="jx-steps">
+            {steps.map((step, idx) => (
+              <li key={step.title} className="jx-step">
+                <span className={`jx-step-icon${idx === steps.length - 1 ? " is-final" : ""}`} aria-hidden />
+                <div className="jx-step-text">
+                  <strong>
+                    <span className="jx-step-num">{idx + 1}</span> {step.title}
+                  </strong>
+                  <span>{step.desc}</span>
+                </div>
+              </li>
+            ))}
+          </ol>
         </div>
-      </section>
-
-      <section id="capabilities" className="home-section">
-        <h2>{tx({ en: "Core Capabilities", bn: "মূল সক্ষমতাসমূহ" })}</h2>
-        <div className="home-card-grid">
-          <article className="home-card">
-            <h3>{tx({ en: "Text Claim Verification", bn: "টেক্সট ক্লেম ভেরিফিকেশন" })}</h3>
-            <p>{tx({ en: "Live verification pipeline with evidence retrieval, verdict confidence, and human review escalation.", bn: "এভিডেন্স রিট্রিভাল, ভার্ডিক্ট কনফিডেন্স ও মানব রিভিউ এসকেলেশনসহ লাইভ ভেরিফিকেশন পাইপলাইন।" })}</p>
-            <span className="home-badge live">{tx({ en: "Live", bn: "লাইভ" })}</span>
-          </article>
-          <article className="home-card">
-            <h3>{tx({ en: "Image OCR Verification", bn: "ইমেজ OCR ভেরিফিকেশন" })}</h3>
-            <p>{tx({ en: "Extract text from uploaded images and route it through the same retrieval and verdict engine.", bn: "আপলোড করা ছবি থেকে টেক্সট বের করে একই রিট্রিভাল ও ভার্ডিক্ট ইঞ্জিনে পাঠানো হয়।" })}</p>
-            <span className="home-badge live">{tx({ en: "Live", bn: "লাইভ" })}</span>
-          </article>
-          <article className="home-card">
-            <h3>{tx({ en: "PDF OCR Verification", bn: "PDF OCR ভেরিফিকেশন" })}</h3>
-            <p>{tx({ en: "Parse PDF content to detect claim statements and generate evidence-backed verification results.", bn: "PDF কনটেন্ট পার্স করে ক্লেম শনাক্ত করা এবং এভিডেন্সভিত্তিক ভেরিফিকেশন ফল তৈরি করা হয়।" })}</p>
-            <span className="home-badge live">{tx({ en: "Live", bn: "লাইভ" })}</span>
-          </article>
-          <article className="home-card">
-            <h3>{tx({ en: "Audio and Video Modules", bn: "অডিও ও ভিডিও মডিউল" })}</h3>
-            <p>{tx({ en: "Planned multimodal expansion with transcription and timeline-based verification in future phases.", bn: "ভবিষ্যৎ ধাপে ট্রান্সক্রিপশন ও টাইমলাইনভিত্তিক ভেরিফিকেশনসহ মাল্টিমডাল সম্প্রসারণ পরিকল্পিত।" })}</p>
-            <span className="home-badge future">{tx({ en: "Roadmap", bn: "রোডম্যাপ" })}</span>
-          </article>
-        </div>
-      </section>
-
-      <section id="pipeline" className="home-section">
-        <h2>{tx({ en: "Verification Pipeline", bn: "ভেরিফিকেশন পাইপলাইন" })}</h2>
-        <ol className="home-pipeline">
-          <li>{tx({ en: "Claim intake from text, image, or PDF endpoints", bn: "টেক্সট, ইমেজ বা PDF এন্ডপয়েন্ট থেকে ক্লেম গ্রহণ" })}</li>
-          <li>{tx({ en: "OCR and normalization for structured claim text", bn: "স্ট্রাকচার্ড ক্লেম টেক্সটের জন্য OCR ও নরমালাইজেশন" })}</li>
-          <li>{tx({ en: "Embedding retrieval and reranking against knowledge sources", bn: "জ্ঞানভান্ডার সূত্রের বিপরীতে এমবেডিং রিট্রিভাল ও রির্যাংকিং" })}</li>
-          <li>{tx({ en: "LLM verdict generation with confidence and explanation", bn: "কনফিডেন্স ও ব্যাখ্যাসহ LLM ভার্ডিক্ট তৈরি" })}</li>
-          <li>{tx({ en: "Cross-verification links plus human review recommendation", bn: "ক্রস-ভেরিফিকেশন লিংক এবং মানব রিভিউ সুপারিশ" })}</li>
-        </ol>
-      </section>
-
-      <section className="home-section">
-        <h2>{tx({ en: "Architecture Components", bn: "আর্কিটেকচার কম্পোনেন্টস" })}</h2>
-        <div className="home-card-grid">
-          <article className="home-card">
-            <h3>{tx({ en: "Laravel Orchestration Layer", bn: "Laravel Orchestration Layer" })}</h3>
-            <p>{tx({ en: "API gateway, async jobs, review actions, and claim-state lifecycle management.", bn: "API গেটওয়ে, async jobs, review actions এবং claim-state lifecycle management।" })}</p>
-          </article>
-          <article className="home-card">
-            <h3>{tx({ en: "OCR + Retrieval Services", bn: "OCR + Retrieval Services" })}</h3>
-            <p>{tx({ en: "Dedicated microservices for extraction, embedding search, and semantic reranking.", bn: "Extraction, embedding search এবং semantic reranking এর জন্য নিবেদিত মাইক্রোসার্ভিস।" })}</p>
-          </article>
-          <article className="home-card">
-            <h3>{tx({ en: "Vector Knowledge Access", bn: "Vector Knowledge Access" })}</h3>
-            <p>{tx({ en: "Evidence retrieval against indexed knowledge collections for grounded verdicts.", bn: "গ্রাউন্ডেড ভার্ডিক্টের জন্য indexed knowledge collections থেকে evidence retrieval।" })}</p>
-          </article>
-          <article className="home-card">
-            <h3>{tx({ en: "Local LLM Compatibility", bn: "Local LLM Compatibility" })}</h3>
-            <p>{tx({ en: "Supports Ollama-based local models for private, low-latency verification deployments.", bn: "প্রাইভেট, লো-লেটেন্সি ভেরিফিকেশনের জন্য Ollama-ভিত্তিক লোকাল মডেল সমর্থন করে।" })}</p>
-          </article>
-        </div>
-      </section>
-
-      <section id="deployment" className="home-section home-section-compact">
-        <h2>{tx({ en: "Project and Product Scope", bn: "প্রকল্প ও পণ্যের পরিধি" })}</h2>
-        <p>
-          {tx({ en: "JachaiX is built as a production-oriented architecture with a Laravel backend, queue workers, OCR/embedder/reranker services, vector retrieval, and Ollama-based local LLM support. The platform is designed for hackathon demos and scalable deployment paths.", bn: "JachaiX একটি production-oriented architecture হিসেবে তৈরি, যেখানে Laravel backend, queue workers, OCR/embedder/reranker services, vector retrieval এবং Ollama-ভিত্তিক local LLM support রয়েছে। প্ল্যাটফর্মটি hackathon demo এবং scalable deployment path এর জন্য ডিজাইন করা।" })}
-        </p>
       </section>
     </main>
   );

@@ -1,5 +1,5 @@
-import { ScanPageView } from "@/components/pages/ScanPage";
+import { VerifyClaimPage } from "@/components/pages/VerifyClaimPage";
 
 export default function ScanPage() {
-  return <ScanPageView />;
+  return <VerifyClaimPage />;
 }
