@@ -20,13 +20,13 @@ function Resolve-PythonExecutable {
         $candidates += $pythonCommand.Source
     }
 
-    $candidates = $candidates | Where-Object { $_ -and (Test-Path $_) }
+    $candidates = @($candidates | Where-Object { $_ -and (Test-Path $_) })
 
     if (-not $candidates -or $candidates.Count -eq 0) {
         throw 'No usable Python executable found. Set up Python 3.10+ on E: or ensure python is on PATH.'
     }
 
-    return $candidates[0]
+    return ($candidates | Select-Object -First 1)
 }
 
 function Invoke-PythonScript {
