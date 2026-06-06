@@ -21,12 +21,14 @@ Route::prefix('v1')->group(function () {
     Route::post('/analyze/text', [ClaimController::class, 'analyzeText']);
     Route::post('/analyze/image', [ClaimController::class, 'analyzeImage']);
     Route::post('/analyze/pdf', [ClaimController::class, 'analyzePdf']);
+    Route::post('/analyze/url', [ClaimController::class, 'analyzeUrl']);
 
     // Claims
     Route::post('/claims', [ClaimController::class, 'submit']);
     Route::get('/claims/{id}/status', [ClaimController::class, 'status']);
     Route::get('/claims/{id}/result', [ClaimController::class, 'result']);
     Route::post('/claims/{id}/review-request', [ClaimController::class, 'submitReviewRequest']);
+    Route::post('/claims/{id}/feedback', [ClaimController::class, 'submitFeedback']);
 
     // Public Fact-Check Hub (MVP)
     Route::get('/public/fact-checks', [PublicFactCheckController::class, 'index']);

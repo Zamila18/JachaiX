@@ -17,6 +17,8 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./backend:/var/www/html
+      - ./scripts:/var/www/scripts:ro
+      - ./corpus:/var/www/corpus
     env_file:
       - ./backend/.env
     depends_on:
@@ -80,6 +82,9 @@ services:
       QDRANT_HOST: qdrant
       QDRANT_PORT: 6333
       QDRANT_COLLECTION: knowledge_base
+      JINA_API_KEY: jina_8caf5564e77c45f5b8f93cbe8945ba9dJCUh8VSUmXqsTM0cYIeH87-NptzO
+      JINA_MODEL: jina-embeddings-v3
+      JINA_DIMS: "1024"
     networks:
       - jachaix
     restart: unless-stopped
@@ -90,9 +95,70 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5003:5003"
+    environment:
+      HF_HOME: /root/.cache/huggingface
+    volumes:
+      - hf_models:/root/.cache/huggingface
     networks:
       - jachaix
     restart: unless-stopped
+
+  reranker-en-service:
+    build:
+      context: ./services/reranker-en-service
+      dockerfile: Dockerfile
+    environment:
+      HF_HOME: /root/.cache/huggingface
+    volumes:
+      - hf_models:/root/.cache/huggingface
+    networks:
+      - jachaix
+    restart: unless-stopped
+
+  image-forensics-service:
+    build:
+      context: ./services/image-forensics-service
+      dockerfile: Dockerfile
+    ports:
+      - "5007:5007"
+    environment:
+      HF_HOME: /root/.cache/huggingface
+    volumes:
+      - hf_models:/root/.cache/huggingface
+    networks:
+      - jachaix
+    restart: unless-stopped
+
+  kb-worker:
+    image: python:3.11-slim
+    volumes:
+      - ./scripts:/scripts
+      - ./corpus:/corpus
+    environment:
+      RAW_DIR: /corpus/raw
+      EMBEDDER_URL: http://embedder-service:5002/embed/text
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: knowledge_base
+      GNEWS_API_KEY: ${GNEWS_API_KEY:-}
+    networks:
+      - jachaix
+    restart: unless-stopped
+    depends_on:
+      - embedder-service
+      - qdrant
+    command: >
+      bash -c "
+        pip install requests qdrant-client trafilatura feedparser beautifulsoup4 lxml -q &&
+        python /scripts/crawl_refresh.py --max-per-source 15 --lookback-days 7 &&
+        python /scripts/crawl_bangla.py  --max-per-source 15 --lookback-days 7 &&
+        python /corpus/chunker/run_chunker.py &&
+        while true; do
+          sleep 86400;
+          python /scripts/crawl_refresh.py --max-per-source 15 --lookback-days 2;
+          python /scripts/crawl_bangla.py  --max-per-source 15 --lookback-days 2;
+          python /corpus/chunker/run_chunker.py;
+        done
+      "
 
   mcp-server:
     build:
@@ -117,7 +183,7 @@ services:
       context: ./services/mcp-ops-server
       dockerfile: Dockerfile
     ports:
-      - "5005:5005"
+      - "5008:5008"
     environment:
       JACHAIX_API_URL: http://nginx/api/v1
       MCP_HOST: 0.0.0.0
@@ -151,6 +217,7 @@ volumes:
   qdrant_data:
   redis_data:
   easyocr_models:
+  hf_models:
 
 networks:
   jachaix:

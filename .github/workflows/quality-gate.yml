@@ -25,6 +25,39 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
 
+      # backend/.env is gitignored (real keys never committed), so it does not exist on
+      # the runner. Generate it here from the template + GitHub Secrets, plus a root .env
+      # for docker compose's ${MYSQL_*} substitution. Add the secrets under
+      # repo Settings → Secrets and variables → Actions.
+      - name: Create CI env files
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          GNEWS_API_KEY: ${{ secrets.GNEWS_API_KEY }}
+        run: |
+          # Root .env — consumed by docker compose for the mysql service's ${MYSQL_*}
+          cat > .env <<EOF
+          MYSQL_ROOT_PASSWORD=ci_root_pw
+          MYSQL_DATABASE=jachaix
+          MYSQL_USER=jachaix
+          MYSQL_PASSWORD=ci_db_pw
+          GNEWS_API_KEY=${GNEWS_API_KEY}
+          EOF
+
+          # backend/.env — from template, with CI DB creds + secret-injected API keys
+          cp backend/.env.example backend/.env
+          sed -i "s|^APP_KEY=.*|APP_KEY=base64:$(openssl rand -base64 32)|" backend/.env
+          sed -i "s|^DB_DATABASE=.*|DB_DATABASE=jachaix|"  backend/.env
+          sed -i "s|^DB_USERNAME=.*|DB_USERNAME=jachaix|"  backend/.env
+          sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=ci_db_pw|" backend/.env
+          sed -i "s|^GROQ_API_KEY=.*|GROQ_API_KEY=${GROQ_API_KEY}|"                backend/.env
+          sed -i "s|^OPENROUTER_API_KEY=.*|OPENROUTER_API_KEY=${OPENROUTER_API_KEY}|" backend/.env
+          sed -i "s|^CEREBRAS_API_KEY=.*|CEREBRAS_API_KEY=${CEREBRAS_API_KEY}|"    backend/.env
+          sed -i "s|^HUGGINGFACE_API_KEY=.*|HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}|" backend/.env
+          sed -i "s|^GNEWS_API_KEY=.*|GNEWS_API_KEY=${GNEWS_API_KEY}|"             backend/.env
+
       - name: Start stack
         run: docker compose up -d --build
 

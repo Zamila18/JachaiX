@@ -1,85 +1,116 @@
 """
-JachaiX Chunker — reads corpus/raw/, chunks articles, embeds, stores in Qdrant.
-Run: E:\Python310\python.exe run_chunker.py --pattern "*.json"
+JachaiX Chunker — reads corpus/raw/, chunks articles with semantic overlap,
+embeds via BGE-M3 (1024d), and upserts into Qdrant.
+
+Run: python run_chunker.py --pattern "*.json" [--reset]
 """
 import argparse
 import hashlib
 import json
+import os
 import re
 import time
+import unicodedata
 import uuid
 from pathlib import Path
 import requests
 
-RAW_DIR      = Path("E:/jachaix/corpus/raw")
-EMBEDDER_URL = "http://localhost:5002/embed/text"
-QDRANT_URL   = "http://localhost:6333"
-COLLECTION   = "knowledge_base"
-VECTOR_SIZE  = 768
+RAW_DIR      = Path(os.getenv("RAW_DIR",      "/corpus/raw"))
+EMBEDDER_URL = os.getenv("EMBEDDER_URL",      "http://embedder-service:5002/embed/text")
+QDRANT_URL   = os.getenv("QDRANT_URL",        "http://qdrant:6333")
+COLLECTION   = os.getenv("QDRANT_COLLECTION", "knowledge_base")
+VECTOR_SIZE  = 1024   # Jina AI jina-embeddings-v3 dense vectors
 
-CHUNK_MAX_CHARS = 2800   # ~700 tokens
+# Semantic chunking parameters
+TARGET_CHARS  = 2048  # ~512 tokens at ~4 chars/token
+OVERLAP_CHARS = 256   # ~64 tokens of carry-over between chunks
 CHUNK_MIN_CHARS = 200
 
+_SENTENCE_SPLIT = re.compile(r'(?<=[।.!?])\s+')
 
-# ── Step 1: Create Qdrant collection ─────────────────────────────────────────
+
+# ── Step 1: Qdrant collection management ─────────────────────────────────────
 
 def ensure_collection(reset: bool = False):
     r = requests.get(f"{QDRANT_URL}/collections/{COLLECTION}", timeout=5)
     if r.status_code == 200:
         count = r.json().get("result", {}).get("vectors_count", 0)
-        print(f"Collection '{COLLECTION}' exists — {count} vectors already stored.")
+        print(f"Collection '{COLLECTION}' exists — {count} vectors.")
         if reset:
             requests.delete(f"{QDRANT_URL}/collections/{COLLECTION}", timeout=10)
-            print("Deleted.")
+            print("Deleted. Recreating...")
         else:
-            print("Keeping existing collection. Will append new chunks.")
+            print("Appending to existing collection.")
             return
-    # Create
     payload = {"vectors": {"size": VECTOR_SIZE, "distance": "Cosine"}}
     r = requests.put(f"{QDRANT_URL}/collections/{COLLECTION}", json=payload, timeout=10)
     if r.status_code in (200, 201):
-        print(f"✅ Collection '{COLLECTION}' created (size={VECTOR_SIZE}, Cosine)")
+        print(f"Collection '{COLLECTION}' created (size={VECTOR_SIZE}, Cosine)")
     else:
         raise RuntimeError(f"Failed to create collection: {r.status_code} {r.text}")
 
 
-# ── Step 2: Chunking ──────────────────────────────────────────────────────────
+# ── Step 2: Semantic chunking with overlap ────────────────────────────────────
 
-def split_into_chunks(text: str, title: str) -> list:
-    text = re.sub(r'\n{3,}', '\n\n', text.strip())
-    paragraphs = re.split(r'\n\n+', text)
-    if len(paragraphs) <= 1:
-        paragraphs = re.split(r'(?<=[।.!?])\s+', text)
+def _sentences(text: str) -> list[str]:
+    parts = _SENTENCE_SPLIT.split(text.strip())
+    return [p.strip() for p in parts if p.strip()]
 
-    chunks = []
-    current = f"শিরোনাম: {title}\n\n" if title else ""
 
-    for para in paragraphs:
-        para = para.strip()
-        if not para:
-            continue
-        if len(current) + len(para) + 2 <= CHUNK_MAX_CHARS:
-            current += para + " "
+def _build_overlap(sentences: list[str], max_chars: int) -> list[str]:
+    overlap: list[str] = []
+    total = 0
+    for s in reversed(sentences):
+        if total + len(s) > max_chars:
+            break
+        overlap.insert(0, s)
+        total += len(s) + 1
+    return overlap
+
+
+def split_into_chunks(text: str, title: str) -> list[dict]:
+    """
+    Returns list of dicts: {text, chunk_type ('coarse'|'fine'), chunk_index}.
+    Produces one coarse summary chunk + N fine chunks with sentence-level overlap.
+    """
+    header = f"শিরোনাম: {title}\n\n" if title else ""
+    body   = re.sub(r'\n{3,}', '\n\n', text.strip())
+    sentences = _sentences(body)
+
+    fine_chunks: list[str] = []
+    current: list[str] = []
+    current_len = 0
+
+    for sent in sentences:
+        slen = len(sent)
+        if current_len + slen + 1 > TARGET_CHARS and current:
+            chunk_text = header + ' '.join(current)
+            if len(chunk_text.strip()) >= CHUNK_MIN_CHARS:
+                fine_chunks.append(chunk_text)
+            overlap = _build_overlap(current, OVERLAP_CHARS)
+            current = overlap + [sent]
+            current_len = sum(len(s) + 1 for s in current)
         else:
-            if len(current.strip()) >= CHUNK_MIN_CHARS:
-                chunks.append(current.strip())
-            if len(para) > CHUNK_MAX_CHARS:
-                sentences = re.split(r'(?<=[।.!?])\s+', para)
-                current = ""
-                for sent in sentences:
-                    if len(current) + len(sent) + 1 <= CHUNK_MAX_CHARS:
-                        current += sent + " "
-                    else:
-                        if len(current.strip()) >= CHUNK_MIN_CHARS:
-                            chunks.append(current.strip())
-                        current = sent + " "
-            else:
-                current = para + " "
+            current.append(sent)
+            current_len += slen + 1
 
-    if len(current.strip()) >= CHUNK_MIN_CHARS:
-        chunks.append(current.strip())
+    if current:
+        chunk_text = header + ' '.join(current)
+        if len(chunk_text.strip()) >= CHUNK_MIN_CHARS:
+            fine_chunks.append(chunk_text)
 
-    return chunks
+    # One coarse chunk = title + first 512 chars (article-level summary for broad retrieval)
+    coarse_text = header + body[:512]
+    coarse = [coarse_text] if len(coarse_text.strip()) >= 100 else []
+
+    result = []
+    for i, ct in enumerate(coarse):
+        result.append({'text': ct, 'chunk_type': 'coarse', 'chunk_index': i})
+    offset = len(coarse)
+    for i, ft in enumerate(fine_chunks):
+        result.append({'text': ft, 'chunk_type': 'fine', 'chunk_index': offset + i})
+
+    return result
 
 
 # ── Step 3: Embed ─────────────────────────────────────────────────────────────
@@ -125,16 +156,16 @@ def build_chunk_id(source: str, url: str, title: str, chunk_index: int, chunk_te
         str(chunk_index),
         chunk_text.strip().lower(),
     ])
-    hashed_key = hashlib.sha1(stable_key.encode("utf-8")).hexdigest()
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, hashed_key))
+    hashed = hashlib.sha1(stable_key.encode("utf-8")).hexdigest()
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, hashed))
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="Chunk raw articles and upsert them into Qdrant")
-    parser.add_argument("--pattern", default="*.json", help="Glob pattern under corpus/raw to ingest")
-    parser.add_argument("--reset", action="store_true", help="Delete and recreate the Qdrant collection before ingest")
+    parser = argparse.ArgumentParser(description="Chunk articles and upsert into Qdrant")
+    parser.add_argument("--pattern", default="*.json", help="Glob pattern under corpus/raw")
+    parser.add_argument("--reset",   action="store_true", help="Delete and recreate Qdrant collection")
     args = parser.parse_args()
 
     ensure_collection(reset=args.reset)
@@ -154,13 +185,14 @@ def main():
         with open(filepath, encoding="utf-8") as f:
             article = json.load(f)
 
-        content     = article.get("content", "").strip()
-        title       = article.get("title", "")
-        url         = article.get("url", "")
-        source      = article.get("source", "unknown")
+        content     = unicodedata.normalize('NFC', article.get("content", "").strip())
+        title       = unicodedata.normalize('NFC', article.get("title",   ""))
+        url         = article.get("url",     "")
+        source      = article.get("source",  "unknown")
         language    = article.get("language", "bn")
         pub_date    = article.get("published_date", "")
-        reliability = article.get("reliability_score", 0.75)
+        reliability = float(article.get("reliability_score", 0.75))
+        category    = article.get("category", "general")
 
         if len(content) < CHUNK_MIN_CHARS:
             skipped += 1
@@ -171,9 +203,13 @@ def main():
             skipped += 1
             continue
 
-        print(f"[{file_idx+1:3d}/{len(all_files)}] {source:15s} | {len(chunks)} chunks | {title[:45]}")
+        print(f"[{file_idx+1:3d}/{len(all_files)}] {source:20s} | {len(chunks):2d} chunks | {title[:40]}")
 
-        for chunk_idx, chunk_text in enumerate(chunks):
+        for chunk in chunks:
+            chunk_text  = unicodedata.normalize('NFC', chunk['text'])
+            chunk_type  = chunk['chunk_type']
+            chunk_index = chunk['chunk_index']
+
             vector = embed_text(chunk_text)
             if vector is None:
                 total_failed += 1
@@ -184,13 +220,19 @@ def main():
                 "source_article_title": title,
                 "source_url":           url,
                 "published_date":       pub_date,
-                "chunk_index":          chunk_idx,
+                "chunk_index":          chunk_index,
+                "chunk_type":           chunk_type,
                 "language":             language,
                 "source_name":          source,
                 "reliability_score":    reliability,
+                "category":             category,
+                # Self-learning fields — defaults; updated nightly by KbQualityUpdateJob
+                "quality_score":        1.0,
+                "source_health_score":  1.0,
+                "freshness_weight":     1.0,
             }
 
-            chunk_id = build_chunk_id(source, url, title, chunk_idx, chunk_text)
+            chunk_id = build_chunk_id(source, url, title, chunk_index, chunk_text)
             ok = upload_to_qdrant(chunk_id, vector, payload)
             if ok:
                 total_uploaded += 1
@@ -206,13 +248,11 @@ def main():
     print(f"Chunks uploaded    : {total_uploaded}")
     print(f"Chunks failed      : {total_failed}")
 
-    # Verify
     r = requests.get(f"{QDRANT_URL}/collections/{COLLECTION}", timeout=5)
     info = r.json().get("result", {})
     print(f"\nQdrant vectors_count : {info.get('vectors_count', '?')}")
     print(f"Qdrant points_count  : {info.get('points_count', '?')}")
 
-    # Quick test search
     vec = embed_text("বাংলাদেশে ভুয়া খবর")
     if vec:
         sr = requests.post(
@@ -225,7 +265,7 @@ def main():
             p = hit.get("payload", {})
             print(f"  [{i+1}] score={hit['score']:.3f} | {p.get('source_name')} | {p.get('source_article_title','')[:50]}")
 
-    print("\n✅ Qdrant knowledge base ready!")
+    print("\nQdrant knowledge base ready!")
 
 
 if __name__ == "__main__":
