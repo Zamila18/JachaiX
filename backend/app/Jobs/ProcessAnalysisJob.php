@@ -10,7 +10,9 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -40,21 +42,36 @@ class ProcessAnalysisJob implements ShouldQueue
             'metadata' => ['input_type' => $this->claim->input_type],
         ]);
 
-        // ── STEP 1: Extract text based on input type ──────────────────
-        $extraction = match ($this->claim->input_type) {
-            'text'  => [
-                'text' => (string) $this->claim->raw_input,
-                'extraction_confidence' => 1.0,
-                'source_metadata' => ['parser' => 'text_input'],
-            ],
-            'image' => $this->runOcrImage((string) $this->claim->file_path),
-            'pdf'   => $this->runOcrPdf((string) $this->claim->file_path),
-            default => [
-                'text' => (string) $this->claim->raw_input,
-                'extraction_confidence' => 0.5,
-                'source_metadata' => ['parser' => 'fallback_input'],
-            ],
-        };
+        // ── STEP 1: Extract text (+ run image forensics in parallel for images) ─
+        $imageForensics = null;
+        if ($this->claim->input_type === 'image') {
+            // Run OCR and forensics concurrently
+            $filePath = (string) $this->claim->file_path;
+            [$ocrResult, $forensicsResult] = $this->runImageAnalysisParallel($filePath, $deadlineAt);
+            $extraction     = $ocrResult;
+            $imageForensics = $forensicsResult;
+        } elseif ($this->claim->input_type === 'url') {
+            $articleText = $this->fetchArticleFromUrl((string) $this->claim->raw_input);
+            $extraction = [
+                'text'                 => $articleText,
+                'extraction_confidence'=> strlen($articleText) > 500 ? 0.85 : 0.40,
+                'source_metadata'      => ['parser' => 'trafilatura_url', 'source_url' => $this->claim->raw_input],
+            ];
+        } else {
+            $extraction = match ($this->claim->input_type) {
+                'text'  => [
+                    'text' => (string) $this->claim->raw_input,
+                    'extraction_confidence' => 1.0,
+                    'source_metadata' => ['parser' => 'text_input'],
+                ],
+                'pdf'   => $this->runOcrPdf((string) $this->claim->file_path),
+                default => [
+                    'text' => (string) $this->claim->raw_input,
+                    'extraction_confidence' => 0.5,
+                    'source_metadata' => ['parser' => 'fallback_input'],
+                ],
+            };
+        }
 
         $rawExtractedText = (string) ($extraction['text'] ?? '');
         $normalizedRawText = $this->normalizeRawInputText($rawExtractedText);
@@ -80,22 +97,57 @@ class ProcessAnalysisJob implements ShouldQueue
             'normalization_data' => $normalization,
         ]);
 
-        // ── STEP 2: Extract clean verifiable claim ────────────────────
-        // For text input the user already typed the claim — skip LLM extraction.
-        // Only run extractClaim on image/pdf to clean up noisy OCR output.
-        $claimText = ($this->claim->input_type === 'text')
+        // ── STEP 2: Detect input mode + extract/normalize claim ──────
+        $inputMode       = $this->detectInputMode($normalizedText);
+        $originalQuestion = ($inputMode === 'question') ? $normalizedText : null;
+
+        $rawClaimText = ($this->claim->input_type === 'text')
             ? $normalizedText
             : $this->extractClaim($normalizedText, $claimLanguage);
+
+        // If user asked a question, convert it to a verifiable assertion for retrieval
+        $claimText = ($inputMode === 'question' && (bool) config('jachaix.verdict.enable_question_mode', true))
+            ? ($this->normalizeQuestion($rawClaimText, $claimLanguage, $deadlineAt) ?: $rawClaimText)
+            : $rawClaimText;
+
         $this->claim->update(['claim_text' => $claimText]);
 
+        // ── STEP 2.3: Understand claim structure with LLM ─────────────
+        $claimUnderstanding = [];
+        if ((bool) config('jachaix.verdict.enable_claim_understanding', true)) {
+            $claimUnderstanding = $this->understandClaim($claimText, $claimLanguage, $deadlineAt) ?? [];
+        }
+
         // ── STEP 2.5: Query rewriting — generate search variants ─────
-        $enableQueryRewrite = (bool) config('jachaix.retrieval.enable_query_rewrite', false);
-        $searchQueries = ($claimLanguage === 'banglish' || !$enableQueryRewrite)
+        $enableQueryRewrite = (bool) config('jachaix.retrieval.enable_query_rewrite', true);
+        $searchQueries = (!$enableQueryRewrite)
             ? []
             : $this->rewriteQueries($claimText, $claimLanguage, $deadlineAt);
-        $crossLingualQueries = $this->expandLanguageQueries($claimText, $claimLanguage);
-        $banglishParaphrases = $this->generateBanglishParaphrases($claimText, $claimLanguage, $deadlineAt);
+        $crossLingualQueries  = $this->expandLanguageQueries($claimText, $claimLanguage);
+        $banglishParaphrases  = $this->generateBanglishParaphrases($claimText, $claimLanguage, $deadlineAt);
         $banglishFallbackQueries = $this->buildBanglishDualLanguageFallbackQueries($claimText, $claimLanguage);
+
+        // HyDE: add hypothetical evidence document as an extra query vector
+        $hydeQuery = [];
+        if ((bool) config('jachaix.verdict.enable_hyde', true)) {
+            $hydeText = $this->generateHypotheticalEvidence($claimText, $claimLanguage, $deadlineAt);
+            if ($hydeText) {
+                $hydeQuery = [$hydeText];
+            }
+        }
+
+        // Seed from structured claim understanding if available
+        // The claim-understanding model can return these as arrays — coerce to flat strings.
+        $understandingQueries = [];
+        if (!empty($claimUnderstanding['core_assertion'])) {
+            $ca = $claimUnderstanding['core_assertion'];
+            $understandingQueries[] = is_array($ca) ? implode(' ', array_map('strval', $ca)) : (string) $ca;
+        }
+        if (!empty($claimUnderstanding['search_intent'])) {
+            $si = $claimUnderstanding['search_intent'];
+            $understandingQueries[] = is_array($si) ? implode(' ', array_map('strval', $si)) : (string) $si;
+        }
+
         $translationConfidence = $this->estimateTranslationConfidence(
             $claimLanguage,
             $claimText,
@@ -105,17 +157,32 @@ class ProcessAnalysisJob implements ShouldQueue
             $banglishFallbackQueries
         );
 
-        $normalization['translation_confidence'] = $translationConfidence;
-        $normalization['query_variant_count'] = count(array_unique(array_merge(
+        $normalization['translation_confidence']  = $translationConfidence;
+        $normalization['input_mode']              = $inputMode;
+        $normalization['original_question']       = $originalQuestion;
+        $normalization['normalized_claim']        = $claimText;
+        $normalization['claim_understanding']     = $claimUnderstanding;
+        // Flatten + stringify defensively: any of these sources may contain nested arrays
+        // from variable LLM metadata, which would break array_unique() with a string cast error.
+        $allVariants  = array_merge(
             $searchQueries,
             $crossLingualQueries,
             $banglishParaphrases,
             $banglishFallbackQueries,
+            $understandingQueries,
+            $hydeQuery,
             $languageProfile['query_variants']
-        )));
+        );
+        $flatVariants = [];
+        array_walk_recursive($allVariants, function ($v) use (&$flatVariants) {
+            if (is_scalar($v)) {
+                $flatVariants[] = (string) $v;
+            }
+        });
+        $normalization['query_variant_count']     = count(array_unique($flatVariants));
         $this->claim->update(['normalization_data' => $normalization]);
 
-        // ── STEP 3: Embed + Search Qdrant (multi-query) ───────────────
+        // ── STEP 3: Embed + Search (dense + BM25 hybrid, multi-query) ─
         $evidence = $this->searchKnowledgeBase(
             $claimText,
             array_merge(
@@ -123,31 +190,105 @@ class ProcessAnalysisJob implements ShouldQueue
                 $languageProfile['query_variants'],
                 $crossLingualQueries,
                 $banglishParaphrases,
-                $banglishFallbackQueries
+                $banglishFallbackQueries,
+                $understandingQueries,
+                $hydeQuery
             ),
             $claimLanguage,
-            $deadlineAt
+            $deadlineAt,
+            $claimUnderstanding
         );
+
+        $webResults   = [];
+        $webAugmented = false;
 
         // ── STEP 4: Rerank → top 5 ───────────────────────────────────
         $reranked = $this->rerankEvidence($claimText, $evidence, $deadlineAt);
 
-        // ── STEP 5: LLM Verdict ───────────────────────────────────────
-        $result = $this->getLlmVerdict($claimText, $reranked, $claimLanguage, $deadlineAt);
+        // ── STEP 4.5: Contextual compression (trim each doc to relevant sentences) ──
+        $reranked = $this->compressEvidenceContext($claimText, $reranked, $deadlineAt);
 
-        // ── STEP 5.5: Compute weighted trust score ───────────────────────
+        // ── STEP 4.6: Auto-RAG — web fallback using rerank scores (precise relevance) ──
+        if (config('jachaix.retrieval.web_fallback.enabled', true)) {
+            $webMinScore   = (float) config('jachaix.retrieval.web_fallback.min_score', 0.65);
+            $kbSufficiency = $this->assessEvidenceSufficiency($reranked, $claimText, $webMinScore);
+            if (!$kbSufficiency['is_sufficient']) {
+                $entities   = (array) ($claimUnderstanding['entities'] ?? []);
+                $webResults = $this->searchWebFallback($claimText, $claimLanguage, $entities);
+                if (!empty($webResults)) {
+                    // Score web hits with the cross-encoder for true relevance instead of the
+                    // placeholder 0.75 — drops keyword-matched-but-irrelevant articles.
+                    $webResults = $this->rerankEvidence($claimText, $webResults, $deadlineAt);
+                }
+                if (!empty($webResults)) {
+                    $reranked     = array_merge($reranked, $webResults);
+                    $webAugmented = true;
+                    $normalization['web_augmented'] = true;
+                    $normalization['web_sources']   = array_map(fn($r) => [
+                        'title'  => $r['title'],
+                        'url'    => $r['url'],
+                        'source' => $r['source'],
+                    ], $webResults);
+                    $this->claim->update(['normalization_data' => $normalization]);
+                }
+            }
+        }
+
+        // ── STEP 5: LLM Verdict (parallel providers + consensus) ─────
+        $result = $this->getLlmVerdict(
+            $claimText,
+            $reranked,
+            $claimLanguage,
+            $deadlineAt,
+            $inputMode,
+            $originalQuestion,
+            $claimUnderstanding,
+            $webAugmented
+        );
+
+        // ── STEP 5.5: Compute weighted trust score ────────────────────
         $trustScore = $this->computeTrustScore($result, $reranked, $this->claim);
 
-        // ── STEP 6: Save final result ───────────────────────────────────            // Use LLM-provided sources when available; fall back to reranked evidence.
+        // ── STEP 6: Save final result ─────────────────────────────────
         $sources = !empty($result['sources'])
             ? $result['sources']
             : array_values(array_map(fn($e) => [
-                'url'             => $e['url']             ?? '',
-                'title'           => $e['title']           ?? '',
-                'source'          => $e['source']          ?? '',
+                'url'               => $e['url']               ?? '',
+                'title'             => $e['title']             ?? '',
+                'source'            => $e['source']            ?? '',
                 'reliability_score' => $e['reliability_score'] ?? 0.5,
-                'score'           => $e['rerank_score']    ?? $e['score'] ?? 0,
+                'score'             => $e['rerank_score']       ?? $e['score'] ?? 0,
             ], $reranked));
+
+        // Persist auto-feedback signal for self-learning loop
+        $this->writeAutoFeedbackSignal($result, $reranked);
+
+        $normalization['direct_answer']   = $result['direct_answer'] ?? null;
+        $normalization['evidence_gap']    = $result['evidence_gap']  ?? false;
+        $normalization['provider_votes']  = $result['provider_votes'] ?? null;
+        $normalization['consensus']       = $result['consensus'] ?? null;
+        if ($imageForensics) {
+            $normalization['image_forensics'] = $imageForensics;
+        }
+        $this->claim->update(['normalization_data' => $normalization]);
+
+        // Image forensics verdict adjustment
+        if ($imageForensics) {
+            $imgVerdict    = $imageForensics['image_verdict']  ?? 'inconclusive';
+            $imgConfidence = (float) ($imageForensics['confidence'] ?? 0.0);
+            if (in_array($imgVerdict, ['manipulated', 'ai_generated'], true) && $imgConfidence >= 0.70) {
+                if ($result['verdict'] === 'true') {
+                    $result['verdict']     = 'misleading';
+                    $result['explanation'] = ($result['explanation'] ?? '') .
+                        ' Note: The submitted image shows signs of ' . str_replace('_', ' ', $imgVerdict) . '.';
+                }
+                $trustScore['detail']['image_forensics'] = [
+                    'image_verdict' => $imgVerdict,
+                    'confidence'    => $imgConfidence,
+                ];
+            }
+        }
+
         $this->claim->update([
             'status'           => 'completed',
             'verdict'          => $result['verdict'],
@@ -158,15 +299,28 @@ class ProcessAnalysisJob implements ShouldQueue
             'sources'          => $sources,
         ]);
 
+        // ── STEP 6.5: Self-learning — store web evidence back to KB ──
+        if (!empty($webResults)) {
+            $this->storeWebResultsToKb($webResults);
+        }
+
+        // Write URL-sourced article to corpus so kb-worker can chunk it properly next cycle
+        if ($this->claim->input_type === 'url' && !empty($rawExtractedText)) {
+            $this->writeUrlArticleToCorpus($rawExtractedText, $claimLanguage, $claimText);
+        }
+
         AuditLog::create([
             'claim_id' => $this->claim->id,
             'event'    => 'verdict_ready',
             'metadata' => [
-                'verdict'      => $result['verdict'],
-                'confidence'   => $result['confidence'],
-                'trust_score'  => $trustScore['score'],
-                'trust_label'  => $trustScore['label'],
-                'trust_detail' => $trustScore['detail'],
+                'verdict'       => $result['verdict'],
+                'confidence'    => $result['confidence'],
+                'trust_score'   => $trustScore['score'],
+                'trust_label'   => $trustScore['label'],
+                'trust_detail'  => $trustScore['detail'],
+                'input_mode'    => $inputMode,
+                'evidence_gap'  => $result['evidence_gap'] ?? false,
+                'consensus'     => $result['consensus'] ?? null,
             ],
         ]);
     }
@@ -188,6 +342,70 @@ class ProcessAnalysisJob implements ShouldQueue
             'event'    => 'error',
             'metadata' => ['error' => $e->getMessage()],
         ]);
+    }
+
+    private function runImageAnalysisParallel(string $filePath, ?float $deadlineAt): array
+    {
+        $forensicsUrl     = config('jachaix.services.forensics_url', '');
+        $forensicsTimeout = (int) config('jachaix.services.forensics_timeout_seconds', 20);
+        $ocrUrl           = config('jachaix.services.ocr_url');
+        $ocrTimeout       = (int) config('jachaix.services.ocr_timeout_seconds', 60);
+        $ocrConnTimeout   = (int) config('jachaix.services.ocr_connect_timeout_seconds', 8);
+
+        if (!$forensicsUrl) {
+            return [$this->runOcrImage($filePath), null];
+        }
+
+        try {
+            $absolutePath = Storage::path($filePath);
+            if (!file_exists($absolutePath)) {
+                return [$this->runOcrImage($filePath), null];
+            }
+            $fileContents = file_get_contents($absolutePath);
+            $baseName     = basename($absolutePath);
+
+            $pool = Http::pool(function (Pool $pool) use ($fileContents, $baseName, $ocrUrl, $ocrTimeout, $ocrConnTimeout, $forensicsUrl, $forensicsTimeout) {
+                $pool->as('ocr')
+                    ->connectTimeout($ocrConnTimeout)
+                    ->timeout($ocrTimeout)
+                    ->attach('file', $fileContents, $baseName)
+                    ->post($ocrUrl . '/ocr/image');
+
+                $pool->as('forensics')
+                    ->timeout($forensicsTimeout)
+                    ->attach('file', $fileContents, $baseName)
+                    ->post($forensicsUrl . '/analyze');
+            });
+
+            $ocrResponse       = $pool['ocr']       ?? null;
+            $forensicsResponse = $pool['forensics'] ?? null;
+
+            $ocrResult = ($ocrResponse instanceof \Throwable || !$ocrResponse || !$ocrResponse->successful())
+                ? $this->runOcrImage($filePath)
+                : $this->parseOcrResponse($ocrResponse->json() ?? [], $filePath);
+
+            $forensicsResult = ($forensicsResponse instanceof \Throwable || !$forensicsResponse || !$forensicsResponse->successful())
+                ? null
+                : $forensicsResponse->json();
+
+            return [$ocrResult, $forensicsResult];
+        } catch (\Throwable) {
+            return [$this->runOcrImage($filePath), null];
+        }
+    }
+
+    private function parseOcrResponse(array $data, string $filePath): array
+    {
+        $result = $data['result'] ?? $data;
+        return [
+            'text'                  => (string) ($result['full_text'] ?? ''),
+            'extraction_confidence' => (float)  ($result['avg_confidence'] ?? 0.7),
+            'source_metadata'       => [
+                'parser'           => 'easyocr_image',
+                'needs_review'     => (bool) ($result['needs_human_review'] ?? false),
+                'file_path'        => $filePath,
+            ],
+        ];
     }
 
     // ── STEP 1a: OCR Image ────────────────────────────────────────────────
@@ -283,8 +501,348 @@ class ProcessAnalysisJob implements ShouldQueue
         return (array) $response->json('result', []);
     }
 
+    // ── URL article fetch (Feature 1 + reused by web fallback) ──────────────
+    private function fetchArticleFromUrl(string $url): string
+    {
+        $embedderUrl = rtrim((string) config('jachaix.services.embedder_url', 'http://embedder-service:5002'), '/');
+        try {
+            $resp = Http::timeout(20)->post($embedderUrl . '/fetch-article', ['url' => $url]);
+            if ($resp->successful()) {
+                $text = (string) $resp->json('text', '');
+                if (strlen($text) > 100) {
+                    return $text;
+                }
+            }
+        } catch (\Exception) { /* fall through to HTTP fallback */ }
+
+        // HTTP fallback: plain GET + strip HTML
+        try {
+            $html = Http::timeout(10)
+                ->withHeaders(['User-Agent' => 'JachaiX/1.0 (fact-checking research)'])
+                ->get($url)
+                ->body();
+            $text = preg_replace('/<[^>]+>/', ' ', $html) ?? '';
+            $text = preg_replace('/\s+/', ' ', $text) ?? '';
+            return trim(mb_substr($text, 0, 3000));
+        } catch (\Exception) {
+            return '';
+        }
+    }
+
+    // ── Normalize web-sourced text (HTML artifacts, whitespace, NFC) ────────
+    private function normalizeWebText(string $text): string
+    {
+        $text = strip_tags($text);
+        if (class_exists('Normalizer')) {
+            $text = \Normalizer::normalize($text, \Normalizer::FORM_C) ?: $text;
+        }
+        $text = preg_replace('/\s+/u', ' ', $text) ?? $text;
+        $text = preg_replace('/([!?.]){3,}/u', '$1$1', $text) ?? $text;
+        return trim($text);
+    }
+
+    // ── Auto-RAG web fallback: Wikipedia (facts) + GNews/RSS (current news) ─────
+    private function searchWebFallback(string $claim, string $language, array $entities): array
+    {
+        $apiKey = (string) config('jachaix.retrieval.web_fallback.api_key', '');
+        $query  = trim(implode(' ', array_slice($entities, 0, 3)) . ' ' . mb_substr($claim, 0, 120));
+        // Use Bengali search only when the claim text itself contains Bengali characters
+        $hasBengali = (bool) preg_match('/[\x{0980}-\x{09FF}]/u', $claim);
+        $lang   = ($hasBengali && str_starts_with($language, 'bn')) ? 'bn' : 'en';
+        $max    = (int) config('jachaix.retrieval.web_fallback.max_results', 4);
+
+        $results = [];
+
+        // ── Encyclopedic source: Wikipedia (free, no key) ──────────────────
+        // Covers factual / common-sense claims that news indexes miss
+        // (e.g. "dog has four legs", "capital of Bangladesh").
+        $wiki = [];
+        if ((bool) config('jachaix.retrieval.web_fallback.enable_wikipedia', true)) {
+            $wiki    = $this->searchWikipedia($query, $claim, $entities, $lang, 2);
+            $results = array_merge($results, $wiki);
+        }
+
+        // ── News source: GNews.io (primary) → Google News RSS (backup) ─────
+        $news = [];
+        if (!empty($apiKey)) {
+            try {
+                $resp = Http::timeout((int) config('jachaix.retrieval.web_fallback.timeout', 12))
+                    ->get('https://gnews.io/api/v4/search', [
+                        'q'       => $query,
+                        'token'   => $apiKey,
+                        'lang'    => $lang,
+                        'country' => 'bd',
+                        'max'     => $max,
+                    ]);
+
+                if ($resp->successful() && !empty($resp->json('articles'))) {
+                    $news = $this->parseGNewsResults($resp->json('articles', []), $max);
+                }
+            } catch (\Exception $e) {
+                // Fall through to RSS backup
+            }
+        }
+        if (empty($news)) {
+            $news = $this->searchWebFallbackRss($query, $lang, $max);
+        }
+        $results = array_merge($results, $news);
+
+        Log::info('[WebFallback]', [
+            'claim_id' => $this->claim->id,
+            'lang'     => $lang,
+            'wiki'     => count($wiki),
+            'news'     => count($news),
+        ]);
+
+        return $results;
+    }
+
+    // ── Wikipedia search + intro extract (single API call via generator=search) ──
+    private function searchWikipedia(string $query, string $claim, array $entities, string $lang, int $max = 2): array
+    {
+        $wikiLang = ($lang === 'bn') ? 'bn' : 'en';
+
+        // Prefer entity-driven search; fall back to the claim text
+        $term = trim(implode(' ', array_slice($entities, 0, 3)));
+        if (mb_strlen($term) < 3) {
+            $term = trim(mb_substr($claim, 0, 120));
+        }
+        if ($term === '') {
+            return [];
+        }
+
+        try {
+            $resp = Http::timeout(8)->get("https://{$wikiLang}.wikipedia.org/w/api.php", [
+                'action'      => 'query',
+                'generator'   => 'search',
+                'gsrsearch'   => $term,
+                'gsrlimit'    => $max,
+                'prop'        => 'extracts',
+                'exintro'     => 1,
+                'explaintext' => 1,
+                'redirects'   => 1,
+                'format'      => 'json',
+            ]);
+
+            if (!$resp->successful()) {
+                return [];
+            }
+
+            $pages = $resp->json('query.pages', []);
+            if (empty($pages)) {
+                return [];
+            }
+
+            $results = [];
+            foreach ($pages as $page) {
+                $title   = (string) ($page['title'] ?? '');
+                $extract = (string) ($page['extract'] ?? '');
+                if ($title === '' || $extract === '') {
+                    continue;
+                }
+
+                $text = $this->normalizeWebText(mb_substr($extract, 0, 600));
+                if (mb_strlen($text) < 80) {
+                    continue;
+                }
+
+                $url = "https://{$wikiLang}.wikipedia.org/wiki/" . rawurlencode(str_replace(' ', '_', $title));
+                $results[] = [
+                    'text'              => $text,
+                    'url'               => $url,
+                    'title'             => $title,
+                    'source'            => "{$wikiLang}.wikipedia.org",
+                    'reliability_score' => 0.80,
+                    'retrieval_source'  => 'wikipedia',
+                    'score'             => 0.78,
+                    'rerank_score'      => 0.78, // placeholder — reranked downstream
+                ];
+            }
+
+            return $results;
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    private function parseGNewsResults(array $articles, int $max): array
+    {
+        $results = [];
+        foreach (array_slice($articles, 0, $max) as $article) {
+            $url     = (string) ($article['url'] ?? '');
+            $title   = (string) ($article['title'] ?? '');
+            $snippet = (string) ($article['description'] ?? $article['content'] ?? '');
+            if (!$url) {
+                continue;
+            }
+
+            $text = $snippet;
+            if (config('jachaix.retrieval.web_fallback.fetch_full', true) && strlen($snippet) < 400) {
+                $fetched = $this->fetchArticleFromUrl($url);
+                if (strlen($fetched) > strlen($snippet)) {
+                    $text = $fetched;
+                }
+            }
+
+            $text = $this->normalizeWebText(mb_substr($text, 0, 600));
+            if (strlen($text) < 80) {
+                continue;
+            }
+
+            $results[] = [
+                'text'              => $text,
+                'url'               => $url,
+                'title'             => $title,
+                'source'            => (string) ($article['source']['name'] ?? parse_url($url, PHP_URL_HOST)),
+                'reliability_score' => 0.70,
+                'retrieval_source'  => 'web_live',
+                'score'             => 0.75,
+                'rerank_score'      => 0.75,
+            ];
+        }
+        return $results;
+    }
+
+    private function searchWebFallbackRss(string $query, string $lang, int $max): array
+    {
+        // Use en-US locale — BD locale redirects and returns empty; en-US works reliably
+        $hlGl   = ($lang === 'bn') ? 'hl=bn-BD&gl=BD&ceid=BD:bn' : 'hl=en-US&gl=US&ceid=US:en';
+        $feedUrl = 'https://news.google.com/rss/search?q=' . urlencode($query) . "&{$hlGl}";
+        try {
+            $rssBody = Http::timeout(10)->withOptions(['allow_redirects' => true])->get($feedUrl)->body();
+        } catch (\Exception $e) {
+            return [];
+        }
+
+        $xml = @simplexml_load_string($rssBody);
+        if (!$xml) {
+            return [];
+        }
+
+        $results = [];
+        $count   = 0;
+        foreach ($xml->channel->item as $item) {
+            if ($count >= $max) break;
+            $count++;
+            $url     = (string) ($item->link ?? '');
+            $title   = strip_tags((string) ($item->title ?? ''));
+            $snippet = strip_tags((string) ($item->description ?? ''));
+            if (!$url) {
+                continue;
+            }
+
+            $text = $snippet;
+            if (config('jachaix.retrieval.web_fallback.fetch_full', true) && strlen($snippet) < 400) {
+                $fetched = $this->fetchArticleFromUrl($url);
+                if (strlen($fetched) > strlen($snippet)) {
+                    $text = $fetched;
+                }
+            }
+
+            $text = $this->normalizeWebText(mb_substr($text, 0, 600));
+            if (strlen($text) < 80) {
+                continue;
+            }
+
+            $results[] = [
+                'text'              => $text,
+                'url'               => $url,
+                'title'             => $title,
+                'source'            => (string) parse_url($url, PHP_URL_HOST),
+                'reliability_score' => 0.70,
+                'retrieval_source'  => 'web_live',
+                'score'             => 0.75,
+                'rerank_score'      => 0.75,
+            ];
+        }
+        return $results;
+    }
+
+    // ── Store web results back to KB (self-learning loop) ────────────────────
+    private function storeWebResultsToKb(array $webResults): void
+    {
+        $embedderUrl = rtrim((string) config('jachaix.services.embedder_url', 'http://embedder-service:5002'), '/');
+        $qdrantUrl   = rtrim((string) config('jachaix.services.qdrant_url', 'http://qdrant:6333'), '/');
+
+        foreach ($webResults as $item) {
+            try {
+                $cleanText = $this->normalizeWebText($item['title'] . ' ' . $item['text']);
+                $embResp   = Http::timeout(10)->post($embedderUrl . '/embed/text', ['text' => $cleanText]);
+                if (!$embResp->successful()) {
+                    continue;
+                }
+                $vector = $embResp->json('embedding');
+                if (empty($vector)) {
+                    continue;
+                }
+
+                // Stable UUID from URL so the same source is never stored twice
+                $stableId = \Ramsey\Uuid\Uuid::uuid5(
+                    \Ramsey\Uuid\Uuid::NAMESPACE_URL,
+                    strtolower((string) $item['url'])
+                )->toString();
+
+                Http::timeout(8)->put($qdrantUrl . '/collections/knowledge_base/points', [
+                    'points' => [[
+                        'id'      => $stableId,
+                        'vector'  => $vector,
+                        'payload' => [
+                            'chunk_text'           => $item['title'] . "\n\n" . $item['text'],
+                            'source_url'           => $item['url'],
+                            'source_article_title' => $item['title'],
+                            'source_name'          => $item['source'],
+                            'reliability_score'    => 0.70,
+                            'quality_score'        => 0.80,
+                            'retrieval_source'     => 'web_live',
+                            'language'             => 'en',
+                            'published_date'       => now()->toISOString(),
+                            'category'             => 'web_fetched',
+                        ],
+                    ]],
+                ]);
+            } catch (\Exception) {
+                // Never block verdict delivery
+            }
+        }
+    }
+
+    // ── Write URL-sourced article to corpus for kb-worker to chunk properly ──
+    private function writeUrlArticleToCorpus(string $articleText, string $language, string $claimText): void
+    {
+        try {
+            $corpusPath = base_path('../corpus/raw');
+            if (!is_dir($corpusPath)) {
+                return;
+            }
+            $hash    = substr(md5((string) $this->claim->raw_input), 0, 8);
+            $outFile = $corpusPath . '/url_' . $hash . '.json';
+            if (file_exists($outFile)) {
+                return; // already written from a previous run
+            }
+            $data = [
+                'source'            => (string) parse_url((string) $this->claim->raw_input, PHP_URL_HOST),
+                'url'               => $this->claim->raw_input,
+                'title'             => mb_substr($claimText, 0, 120),
+                'content'           => $articleText,
+                'language'          => $language,
+                'published_date'    => now()->toISOString(),
+                'reliability_score' => 0.75,
+                'scraped_at'        => now()->toISOString(),
+                'category'          => 'web_fetched',
+            ];
+            file_put_contents($outFile, json_encode($data, JSON_UNESCAPED_UNICODE));
+        } catch (\Exception) {
+            // Non-critical — don't affect verdict
+        }
+    }
+
     private function normalizeRawInputText(string $text): string
     {
+        // Unicode NFC: ensures Bengali and multi-byte characters are in composed form
+        // so the same word is always encoded identically before embedding.
+        if (class_exists('Normalizer')) {
+            $text = \Normalizer::normalize($text, \Normalizer::FORM_C) ?: $text;
+        }
         $normalized = preg_replace('/\s+/u', ' ', trim($text)) ?? trim($text);
         // Collapse obvious repeated punctuation/emoji noise while preserving sentence meaning.
         $normalized = preg_replace('/([!?.,])\1{2,}/u', '$1$1', $normalized) ?? $normalized;
@@ -361,27 +919,22 @@ class ProcessAnalysisJob implements ShouldQueue
                 default => 'Return the shortest useful search queries for retrieval.',
             };
 
-            $response = Http::retry(1, 300)
-                ->timeout($timeout)
-                ->withToken(config('jachaix.llm.api_key'))
-                ->baseUrl(config('jachaix.llm.base_url'))
-                ->post('chat/completions', [
-                    'model'    => config('jachaix.llm.query_model'),
-                    'stream'   => false,
-                    'messages' => [
-                        [
-                            'role'    => 'system',
-                            'content' => 'Generate 2 short search queries to retrieve evidence for the given claim. Output ONLY a JSON array of 2 strings. ' . $languageNote,
-                        ],
-                        [
-                            'role'    => 'user',
-                            'content' => "Claim: {$claimText}\n\nOutput exactly 2 search queries as a JSON array:",
-                        ],
+            $response = $this->postFastPreprocessLlm([
+                'stream'   => false,
+                'messages' => [
+                    [
+                        'role'    => 'system',
+                        'content' => 'Generate 2 short search queries to retrieve evidence for the given claim. Output ONLY a JSON array of 2 strings. ' . $languageNote,
                     ],
-                    'max_tokens' => 100,
-                ]);
+                    [
+                        'role'    => 'user',
+                        'content' => "Claim: {$claimText}\n\nOutput exactly 2 search queries as a JSON array:",
+                    ],
+                ],
+                'max_tokens' => 100,
+            ], $timeout);
 
-            if ($response->failed()) {
+            if (!$response || $response->failed()) {
                 return [];
             }
 
@@ -702,8 +1255,8 @@ class ProcessAnalysisJob implements ShouldQueue
         return round(min(0.97, max(0.35, $score)), 3);
     }
 
-    // ── STEP 3: Embed + Qdrant search (multi-query) ───────────────────────────
-    private function searchKnowledgeBase(string $text, array $extraQueries = [], string $language = 'auto', ?float $deadlineAt = null): array
+    // ── STEP 3: Embed + Qdrant search (multi-query, dense + BM25 hybrid) ────────
+    private function searchKnowledgeBase(string $text, array $extraQueries = [], string $language = 'auto', ?float $deadlineAt = null, array $claimUnderstanding = []): array
     {
         $topKPerQuery = (int) config('jachaix.retrieval.top_k_per_query', 10);
         $maxCandidates = (int) config('jachaix.retrieval.max_candidates', 15);
@@ -876,8 +1429,6 @@ class ProcessAnalysisJob implements ShouldQueue
         if (empty($allResults)) {
             Log::info('No evidence above similarity threshold', ['claim' => mb_substr($text, 0, 80)]);
 
-            // Keep a small retrieval fallback so we do not return empty evidence solely
-            // because strict similarity filtering was too aggressive for Banglish phrasing.
             foreach ($allResultsNoThreshold as $result) {
                 $dedupeKey = $result['url'] ?? $result['text'] ?? json_encode($result);
                 if (!isset($seen[$dedupeKey])) {
@@ -890,7 +1441,119 @@ class ProcessAnalysisJob implements ShouldQueue
             }
         }
 
+        // ── BM25 hybrid search branch ────────────────────────────────
+        $enableBm25 = (bool) config('jachaix.retrieval.enable_bm25', true);
+        if ($enableBm25) {
+            $entities = (array) ($claimUnderstanding['entities'] ?? []);
+            $bm25Results = [];
+            foreach ($queries as $query) {
+                $hits = $this->searchKnowledgeBaseFullText($query, $topKPerQuery, $entities);
+                foreach ($hits as $hit) {
+                    $bm25Results[] = $hit;
+                }
+            }
+            if (!empty($bm25Results)) {
+                $allResults = $this->mergeWithRRF($allResults, $bm25Results, $maxCandidates);
+            }
+        }
+
+        // Log retrieval for self-learning (graceful degradation)
+        $this->logRetrieval($text, $allResults, $enableBm25 ? 'hybrid' : 'dense');
+
         return $this->diversifyEvidenceBySource(array_slice($allResults, 0, $maxCandidates), 5);
+    }
+
+    private function searchKnowledgeBaseFullText(string $query, int $topK = 10, array $entityAnchors = []): array
+    {
+        try {
+            $sanitized = preg_replace('/[+\-><\(\)~*"@]+/', ' ', $query);
+            $sanitized = trim((string) preg_replace('/\s+/', ' ', $sanitized));
+            if (mb_strlen($sanitized) < 3) {
+                return [];
+            }
+            // Entity anchoring: prepend mandatory terms for named entities
+            if (!empty($entityAnchors)) {
+                $anchors = array_map(
+                    fn($e) => '+' . preg_replace('/[+\-><\(\)~*"@]+/', '', (string) $e),
+                    array_slice($entityAnchors, 0, 4)
+                );
+                $sanitized = implode(' ', $anchors) . ' ' . $sanitized;
+            }
+            $rows = DB::select(
+                "SELECT id, title, content, source_url, source_name, language,
+                        reliability_score, published_date,
+                        MATCH(content) AGAINST(? IN BOOLEAN MODE) AS ft_score
+                 FROM knowledge_base
+                 WHERE MATCH(content) AGAINST(? IN BOOLEAN MODE)
+                 ORDER BY ft_score DESC
+                 LIMIT ?",
+                [$sanitized, $sanitized, $topK]
+            );
+            return array_map(fn($row) => [
+                'score'             => (float) $row->ft_score,
+                'text'              => mb_substr((string)($row->content ?? ''), 0, 1000),
+                'url'               => $row->source_url ?? '',
+                'title'             => $row->title ?? '',
+                'source'            => $row->source_name ?? '',
+                'reliability_score' => (float) ($row->reliability_score ?? 0.75),
+                'published_date'    => $row->published_date ?? '',
+                'retrieval_source'  => 'bm25',
+            ], $rows);
+        } catch (\Throwable $e) {
+            Log::warning('BM25 fulltext search failed', ['error' => $e->getMessage()]);
+            return [];
+        }
+    }
+
+    private function mergeWithRRF(array $dense, array $bm25, int $topK, int $k = 60): array
+    {
+        $scores = [];
+        $items  = [];
+        foreach (array_values($dense) as $rank => $item) {
+            $key = $item['url'] ?? $item['text'] ?? json_encode($item);
+            $scores[$key] = ($scores[$key] ?? 0.0) + 1.0 / ($k + $rank + 1);
+            if (!isset($items[$key])) {
+                $items[$key] = $item;
+            }
+        }
+        foreach (array_values($bm25) as $rank => $item) {
+            $key = $item['url'] ?? $item['text'] ?? json_encode($item);
+            $scores[$key] = ($scores[$key] ?? 0.0) + 1.0 / ($k + $rank + 1);
+            if (!isset($items[$key])) {
+                $items[$key] = $item;
+            }
+        }
+        $merged = [];
+        foreach ($scores as $key => $rrf) {
+            $item          = $items[$key];
+            $item['score'] = round($rrf, 6);
+            $merged[]      = $item;
+        }
+        usort($merged, fn($a, $b) => $b['score'] <=> $a['score']);
+        return array_slice($merged, 0, $topK);
+    }
+
+    private function logRetrieval(string $query, array $results, string $source): void
+    {
+        try {
+            if (!\Illuminate\Support\Facades\Schema::hasTable('retrieval_logs')) {
+                return;
+            }
+            $scores = array_column($results, 'score');
+            DB::table('retrieval_logs')->insert([
+                'claim_id'         => $this->claim->id,
+                'query_text'       => mb_substr($query, 0, 512),
+                'retrieval_source' => $source,
+                'results_count'    => count($results),
+                'top_score'        => !empty($scores) ? round((float) max($scores), 4) : null,
+                'avg_score'        => !empty($scores) ? round(array_sum($scores) / count($scores), 4) : null,
+                'result_urls'      => json_encode(array_column(array_slice($results, 0, 5), 'url')),
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ]);
+        } catch (\Throwable) {
+            // Never block the pipeline
+        }
     }
 
     // ── STEP 4: Rerank evidence ───────────────────────────────────────────
@@ -898,9 +1561,9 @@ class ProcessAnalysisJob implements ShouldQueue
     {
         if (empty($evidence)) return [];
 
-        $rerankTopK = max(1, (int) config('jachaix.retrieval.rerank_top_k', 5));
+        $rerankTopK   = max(1, (int) config('jachaix.retrieval.rerank_top_k', 5));
         $enableRerank = (bool) config('jachaix.retrieval.enable_rerank', true);
-        $enableCache = (bool) config('jachaix.retrieval.enable_cache', true);
+        $enableCache  = (bool) config('jachaix.retrieval.enable_cache', true);
         $rerankCacheTtl = max(60, (int) config('jachaix.retrieval.rerank_cache_ttl_seconds', 900));
 
         if (!$enableRerank) {
@@ -914,46 +1577,82 @@ class ProcessAnalysisJob implements ShouldQueue
             return array_slice($evidence, 0, $rerankTopK);
         }
 
-        $evidenceSignature = collect(array_slice($evidence, 0, min(12, count($evidence))))
+        // Cap candidates at 8 before reranking — reduces inference pairs ~35% vs 12
+        $candidates = array_slice($evidence, 0, min(8, count($evidence)));
+
+        $evidenceSignature = collect($candidates)
             ->map(fn ($e) => ($e['url'] ?? '') . '|' . ($e['title'] ?? '') . '|' . (string) round((float) ($e['score'] ?? 0), 4))
             ->join('||');
         $cacheKey = 'kb:rerank:' . sha1(strtolower(trim($claim)) . '|k=' . $rerankTopK . '|ev=' . $evidenceSignature);
 
+        $multiUrl = config('jachaix.services.reranker_url');
+        $enUrl    = config('jachaix.services.reranker_en_url', '');
+
+        $doRerank = function () use ($claim, $candidates, $timeout, $rerankTopK, $multiUrl, $enUrl): array {
+            // Ask both services to score ALL candidates (top_k = count) so we can merge before slicing
+            $payload = [
+                'query'     => $claim,
+                'documents' => $candidates,
+                'top_k'     => count($candidates),
+            ];
+
+            try {
+                /** @var \Illuminate\Http\Client\Response|null $multiResp */
+                /** @var \Illuminate\Http\Client\Response|null $enResp */
+                if ($enUrl) {
+                    // Parallel: multilingual + English cross-encoder simultaneously
+                    $responses = Http::pool(fn ($pool) => [
+                        $pool->timeout($timeout)->post($multiUrl . '/rerank', $payload),
+                        $pool->timeout($timeout)->post($enUrl   . '/rerank', $payload),
+                    ]);
+                    // Http::pool returns Response or ConnectionException per slot
+                    $multiResp = ($responses[0] instanceof \Illuminate\Http\Client\Response) ? $responses[0] : null;
+                    $enResp    = ($responses[1] instanceof \Illuminate\Http\Client\Response) ? $responses[1] : null;
+                } else {
+                    $multiResp = Http::retry(1, 300)->timeout($timeout)->post($multiUrl . '/rerank', $payload);
+                    $enResp    = null;
+                }
+
+                if (!$multiResp || $multiResp->failed()) {
+                    return array_slice($candidates, 0, $rerankTopK);
+                }
+
+                $multiResults = $multiResp->json('results', []);
+
+                // Merge EN scores into multi results: max(multi_score, en_score) per doc
+                if ($enResp && $enResp->successful()) {
+                    $enScores = [];
+                    foreach ($enResp->json('results', []) as $er) {
+                        $enScores[md5($er['text'] ?? '')] = (float) ($er['rerank_score'] ?? 0);
+                    }
+                    foreach ($multiResults as &$doc) {
+                        $key     = md5($doc['text'] ?? '');
+                        $enScore = $enScores[$key] ?? null;
+                        if ($enScore !== null) {
+                            $doc['rerank_en_score'] = $enScore;
+                            $doc['rerank_score']    = max((float) ($doc['rerank_score'] ?? 0), $enScore);
+                        }
+                    }
+                    unset($doc);
+                }
+
+                // Sort by merged score, return top_k
+                usort($multiResults, fn ($a, $b) => ($b['rerank_score'] ?? 0) <=> ($a['rerank_score'] ?? 0));
+                return array_slice($multiResults, 0, $rerankTopK);
+
+            } catch (\Throwable $e) {
+                Log::warning('Reranker pool failed', ['error' => $e->getMessage()]);
+                return array_slice($candidates, 0, $rerankTopK);
+            }
+        };
+
         try {
             $ranked = $enableCache
-                ? Cache::remember($cacheKey, $rerankCacheTtl, function () use ($claim, $evidence, $timeout, $rerankTopK) {
-                    $response = Http::retry(1, 300)
-                        ->timeout($timeout)
-                        ->post(config('jachaix.services.reranker_url') . '/rerank', [
-                            'query'     => $claim,
-                            'documents' => $evidence,
-                            'top_k'     => $rerankTopK,
-                        ]);
-
-                    if ($response->failed()) {
-                        return array_slice($evidence, 0, $rerankTopK);
-                    }
-
-                    return $response->json('results', array_slice($evidence, 0, $rerankTopK));
-                })
-                : (function () use ($claim, $evidence, $timeout, $rerankTopK) {
-                    $response = Http::retry(1, 300)
-                        ->timeout($timeout)
-                        ->post(config('jachaix.services.reranker_url') . '/rerank', [
-                            'query'     => $claim,
-                            'documents' => $evidence,
-                            'top_k'     => $rerankTopK,
-                        ]);
-
-                    if ($response->failed()) {
-                        return array_slice($evidence, 0, $rerankTopK);
-                    }
-
-                    return $response->json('results', array_slice($evidence, 0, $rerankTopK));
-                })();
+                ? Cache::remember($cacheKey, $rerankCacheTtl, $doRerank)
+                : $doRerank();
         } catch (\Throwable $e) {
             Log::warning('Reranker request failed, using original order', ['error' => $e->getMessage()]);
-            return array_slice($evidence, 0, $rerankTopK);
+            return array_slice($candidates, 0, $rerankTopK);
         }
 
         $ranked = $this->enrichEvidenceWithClaimScores($claim, $ranked);
@@ -994,102 +1693,288 @@ class ProcessAnalysisJob implements ShouldQueue
         return $this->diversifyEvidenceBySource($filtered, $rerankTopK);
     }
 
-    // ── STEP 5: LLM Verdict ───────────────────────────────────────────────
-    private function getLlmVerdict(string $claim, array $evidence, string $language = 'auto', ?float $deadlineAt = null): array
-    {
-        $allowCanonicalShortcut = (bool) config('jachaix.verdict.enable_canonical_shortcuts', true);
-        if ($allowCanonicalShortcut) {
+    // ── STEP 5: LLM Verdict (parallel consensus engine) ──────────────────────
+    private function getLlmVerdict(
+        string $claim,
+        array $evidence,
+        string $language = 'auto',
+        ?float $deadlineAt = null,
+        string $inputMode = 'claim',
+        ?string $originalQuestion = null,
+        array $claimUnderstanding = [],
+        bool $webAugmented = false
+    ): array {
+        // Canonical shortcut — skip LLM entirely for well-known facts
+        if ((bool) config('jachaix.verdict.enable_canonical_shortcuts', true)) {
             $canonical = $this->detectCanonicalClaimTruth($claim);
             if ($canonical) {
-                return [
-                    'verdict' => $canonical['verdict'],
-                    'confidence' => $canonical['confidence'],
-                    'explanation' => $canonical['explanation'],
-                    'sources' => [],
-                ];
+                return array_merge($canonical, [
+                    'sources' => [], 'direct_answer' => null,
+                    'input_mode' => $inputMode, 'evidence_gap' => false, 'consensus' => 'canonical',
+                ]);
             }
+        }
+
+        // Evidence sufficiency gate. When evidence is thin we no longer hard-stop — we still let
+        // the LLM apply well-established general knowledge for UNIVERSAL facts (tiered policy).
+        // If it cannot confirm/refute, the "unverified" result is converted back to an honest
+        // evidence gap by finalizeLimitedEvidence() below.
+        $sufficiency     = $this->assessEvidenceSufficiency($evidence, $claim);
+        $evidenceLimited = !$sufficiency['is_sufficient'];
+
+        $languageNote = match ($language) {
+            'banglish'      => 'The claim was written in Banglish (romanized Bangla). Treat it as a Bangla claim.',
+            'bn'            => 'The claim is in Bangla.',
+            'en'            => 'The claim is in English.',
+            'international' => 'This is an international claim. Use global evidence.',
+            default         => 'The claim may be Bangla, English, Banglish, or international.',
+        };
+
+        $understandingNote = '';
+        if (!empty($claimUnderstanding['topic'])) {
+            $topic = is_array($claimUnderstanding['topic'])
+                ? implode(', ', $claimUnderstanding['topic'])
+                : (string) $claimUnderstanding['topic'];
+            $understandingNote = "\nTopic category: " . $topic;
+        }
+        if (!empty($claimUnderstanding['entities'])) {
+            $understandingNote .= "\nKey entities: " . implode(', ', (array) $claimUnderstanding['entities']);
+        }
+
+        // Add temporal note when tense markers detected
+        $temporalNote = '';
+        $temporalMarkers = $this->detectTemporalClaimMarkers($claim);
+        if (!empty($temporalMarkers)) {
+            $temporalNote = "\nTemporal context: This claim appears to reference the " . implode('/', $temporalMarkers) . " tense. Evaluate evidence in that time context.";
         }
 
         $evidenceText = collect($evidence)
             ->map(fn($e) => "Source: " . ($e['url'] ?? 'unknown') . "\n" . ($e['text'] ?? $e['snippet'] ?? ''))
             ->join("\n\n---\n\n");
 
-        $hasEvidence = !empty($evidence);
-
-        if (!$hasEvidence) {
-            return $this->fallbackVerdictFromEvidence($claim, $evidence, 'no_evidence_found');
+        $questionInstruction = '';
+        if ($inputMode === 'question' && $originalQuestion) {
+            $questionInstruction = "\n\nThe user originally asked: \"{$originalQuestion}\"\nAlso provide a direct_answer field: a concise YES/NO/PARTIALLY + one factual sentence that answers the question based only on the evidence.";
         }
 
-        $languageNote = match ($language) {
-            'banglish' => 'The claim was written in Banglish and should be interpreted as Bangla.',
-            'bn' => 'The claim is in Bangla.',
-            'en' => 'The claim is in English.',
-            'international' => 'The claim is about an international topic and should be judged using international evidence too.',
-            default => 'The claim may be Bangla, English, Banglish, or international.',
-        };
+        $evidenceNote = $evidenceLimited
+            ? "\nNOTE: The retrieved evidence is limited or only loosely related. Return \"true\" or \"false\" ONLY if this is a universally-established, non-controversial fact you are certain of through well-established general knowledge (basic science, biology, geography, math, or definitions). For any contestable, current, statistical, or specific claim where evidence is insufficient, return \"unverified\"."
+            : '';
 
-        $userPrompt = $hasEvidence
-            ? "{$languageNote}\n\nClaim: {$claim}\n\nEvidence:\n{$evidenceText}\n\nReturn ONLY valid JSON with keys: verdict, confidence, explanation, sources."
-            : "{$languageNote}\n\nClaim: {$claim}\n\nEvidence: No relevant evidence found in knowledge base.\n\nReturn ONLY valid JSON with keys: verdict, confidence, explanation, sources.";
+        $userPrompt = "{$languageNote}{$understandingNote}{$temporalNote}{$evidenceNote}\n\nClaim: {$claim}\n\nEvidence:\n{$evidenceText}{$questionInstruction}\n\nReturn ONLY valid JSON.";
 
-        $fastModel = config('jachaix.llm.verdict_fast_model');
-        $strongModel = config('jachaix.llm.verdict_strong_model');
-        $fastConfidenceThreshold = (float) config('jachaix.verdict.fast_confidence_threshold', 0.55);
-        $fastTimeout = $this->remainingStepTimeout($deadlineAt, (int) config('jachaix.verdict.fast_model_timeout', 20), 2);
-        $strongTimeout = $this->remainingStepTimeout($deadlineAt, (int) config('jachaix.verdict.strong_model_timeout', 70), 1);
+        $systemPrompt = 'You are a multilingual fact-checking AI for Bangla, English, and Banglish claims.'
+            . ' CRITICAL RULES:'
+            . ' (1) For CONTESTABLE claims — current events, news, statistics, dates, quotes, or claims about specific people, organisations, or places — base your verdict ONLY on the provided evidence and do NOT rely on training knowledge; if the evidence is weak, contradictory, or missing, use "unverified".'
+            . ' (2) For UNIVERSALLY-ESTABLISHED, non-controversial facts — basic science, biology, geography, mathematics, and dictionary definitions (e.g. "a dog has four legs", "water boils at 100°C at sea level", "Paris is in France") — you MAY confirm ("true") or refute ("false") using well-established general knowledge even if the evidence does not restate the fact.'
+            . ' (3) Do NOT invent specific facts, statistics, names, or dates that are not in the evidence.'
+            . ' (4) If asked a question, set direct_answer only when clearly supported; otherwise null.'
+            . ' Respond with ONLY a valid JSON object with keys:'
+            . ' "verdict" (one of: "true","false","misleading","unverified"),'
+            . ' "confidence" (float 0.0–1.0),'
+            . ' "explanation" (2–3 sentences),'
+            . ' "sources" (array of source URLs from evidence),'
+            . ' "direct_answer" (string or null).';
 
-        $fastResult = null;
-        if ($fastTimeout > 0) {
-            $fastResult = $this->runVerdictInference($userPrompt, $evidence, (string)$fastModel, $fastTimeout, 2);
+        if ($webAugmented) {
+            $systemPrompt .= ' IMPORTANT: The evidence below was fetched live from the web because the local'
+                . ' knowledge base did not have sufficient coverage for this claim.'
+                . ' In your explanation you MUST: (1) mention that this claim was not found in the local database'
+                . ' and that web sources were searched, (2) describe what those web sources say about the claim,'
+                . ' (3) explain why you reached your verdict based on that web evidence.';
         }
-        if ($fastResult) {
-            $fastResult = $this->calibrateVerdictWithEvidence($claim, $fastResult, $evidence);
-        }
 
-        $consensusSignal = $this->deriveSourceConsensus($claim, $evidence);
-        if ($consensusSignal['strength'] >= 0.65) {
-            if ($consensusSignal['verdict'] !== 'unverified') {
-                $consensusVerdict = [
-                    'verdict' => $consensusSignal['verdict'],
-                    'confidence' => $consensusSignal['confidence'],
-                    'explanation' => $consensusSignal['explanation'],
-                    'sources' => array_values(array_map(fn($e) => $e['url'] ?? '', $evidence)),
+        // ── Parallel provider pool ────────────────────────────────────
+        $providers = array_values(array_filter(
+            config('jachaix.verdict_providers', []),
+            fn($p) => !empty($p['enabled']) && !empty($p['api_key'])
+        ));
+
+        Log::info('[JachaiX] Firing verdict pool', [
+            'claim_id'  => $this->claim->id,
+            'providers' => array_column($providers, 'name'),
+        ]);
+
+        $poolTimeout = $this->remainingStepTimeout($deadlineAt, (int) config('jachaix.verdict_consensus.pool_timeout', 20), 3);
+        $parsedResponses = [];
+
+        if ($poolTimeout > 0 && count($providers) >= 1) {
+            $rawPool = Http::pool(function (Pool $pool) use ($providers, $userPrompt, $systemPrompt) {
+                foreach ($providers as $p) {
+                    $pool->as($p['name'])
+                        ->timeout($p['timeout'])
+                        ->withToken($p['api_key'])
+                        ->baseUrl($p['base_url'])
+                        ->post('chat/completions', [
+                            'model'       => $p['model'],
+                            'stream'      => false,
+                            'temperature' => 0,
+                            'messages'    => [
+                                ['role' => 'system', 'content' => $systemPrompt],
+                                ['role' => 'user',   'content' => $userPrompt],
+                            ],
+                            'max_tokens' => 1500,
+                        ]);
+                }
+            });
+
+            foreach ($rawPool as $providerName => $response) {
+                if ($response instanceof \Throwable || !($response->successful())) {
+                    $parsedResponses[$providerName] = null;
+                    $errDetail = $response instanceof \Throwable
+                        ? $response->getMessage()
+                        : ($response->status() . ': ' . mb_substr($response->body(), 0, 200));
+                    Log::warning('Verdict provider failed', ['provider' => $providerName, 'detail' => $errDetail]);
+                    continue;
+                }
+                $content = $response->json('choices.0.message.content', '');
+                $decoded = $this->decodeJsonFromLlmContent($content);
+                if (!is_array($decoded) || !isset($decoded['verdict'])) {
+                    $parsedResponses[$providerName] = null;
+                    Log::warning('Verdict provider unparseable', [
+                        'provider' => $providerName,
+                        'content'  => mb_substr((string) $content, 0, 300),
+                    ]);
+                    continue;
+                }
+                $verdict = in_array($decoded['verdict'], ['true','false','misleading','unverified'], true)
+                    ? $decoded['verdict'] : 'unverified';
+                $parsedResponses[$providerName] = [
+                    'verdict'      => $verdict,
+                    'confidence'   => max(0.0, min(1.0, (float)($decoded['confidence'] ?? 0.0))),
+                    'explanation'  => trim((string)($decoded['explanation'] ?? '')),
+                    'sources'      => $decoded['sources'] ?? [],
+                    'direct_answer'=> $decoded['direct_answer'] ?? null,
+                    'provider'     => $providerName,
                 ];
+                Log::info('[JachaiX] Provider responded', [
+                    'provider'   => $providerName,
+                    'verdict'    => $verdict,
+                    'confidence' => $parsedResponses[$providerName]['confidence'],
+                ]);
+            }
+        }
 
-                if (!$fastResult || $fastResult['verdict'] === 'unverified' || $fastResult['confidence'] < $consensusSignal['confidence']) {
-                    return $consensusVerdict;
+        $minProviders = (int) config('jachaix.verdict_consensus.min_providers', 2);
+        $succeeded    = count(array_filter($parsedResponses));
+
+        Log::info('[JachaiX] Pool complete', [
+            'claim_id'  => $this->claim->id,
+            'succeeded' => $succeeded,
+            'failed'    => count($providers) - $succeeded,
+        ]);
+
+        if ($succeeded >= $minProviders) {
+            $consensus = $this->applyConsensus(array_values($parsedResponses));
+            $consensus['input_mode']  = $inputMode;
+            $consensus['evidence_gap'] = false;
+            $consensus['provider_votes'] = array_map(
+                fn($r) => $r ? $r['verdict'] : null,
+                $parsedResponses
+            );
+            $calibrated = $this->calibrateVerdictWithEvidence($claim, $consensus, $evidence);
+            return $this->finalizeLimitedEvidence($calibrated, $evidenceLimited, $claim, $language, $inputMode);
+        }
+
+        // ── Ollama fallback if cloud providers all failed ─────────────
+        if ((bool) config('jachaix.verdict_consensus.enable_ollama_fallback', true)) {
+            $ollamaTimeout = $this->remainingStepTimeout($deadlineAt, 18, 1);
+            if ($ollamaTimeout > 0) {
+                $fallback = $this->runVerdictInference($userPrompt, $evidence, (string) config('jachaix.llm.verdict_strong_model'), $ollamaTimeout, 1);
+                if ($fallback) {
+                    $fallback['input_mode']   = $inputMode;
+                    $fallback['evidence_gap'] = false;
+                    $fallback['consensus']    = 'ollama_fallback';
+                    $fallback['direct_answer'] = $fallback['direct_answer'] ?? null;
+                    $calibrated = $this->calibrateVerdictWithEvidence($claim, $fallback, $evidence);
+                    return $this->finalizeLimitedEvidence($calibrated, $evidenceLimited, $claim, $language, $inputMode);
                 }
             }
         }
 
-        // Keep latency low when fast model is confident and decisive.
-        if ($fastResult
-            && $fastResult['verdict'] !== 'unverified'
-            && $fastResult['confidence'] >= $fastConfidenceThreshold) {
-            return $fastResult;
+        return array_merge(
+            $this->buildEvidenceGapResult($claim, $language, $inputMode),
+            ['evidence_gap' => true, 'consensus' => 'all_providers_failed']
+        );
+    }
+
+    /**
+     * When evidence was thin (tiered policy let the LLM try anyway) and the model could NOT
+     * confirm/refute the claim as a universal fact, fall back to an honest "evidence gap"
+     * instead of a bare "unverified". A confident true/false is preserved — it came from a
+     * universal-fact judgment, not from missing evidence.
+     */
+    private function finalizeLimitedEvidence(array $result, bool $evidenceLimited, string $claim, string $language, string $inputMode): array
+    {
+        if ($evidenceLimited && ($result['verdict'] ?? 'unverified') === 'unverified') {
+            return array_merge(
+                $this->buildEvidenceGapResult($claim, $language, $inputMode),
+                ['evidence_gap' => true, 'consensus' => 'no_evidence']
+            );
+        }
+        return $result;
+    }
+
+    private function applyConsensus(array $responses): array
+    {
+        $valid = array_values(array_filter($responses));
+        $count = count($valid);
+
+        if ($count === 0) {
+            return ['verdict' => 'unverified', 'confidence' => 0.10,
+                    'explanation' => 'No providers responded.', 'sources' => [],
+                    'direct_answer' => null, 'consensus' => 'failed'];
         }
 
-        // Escalate to stronger model only when needed for quality.
-        $needStrongPass = !$fastResult
-            || $fastResult['verdict'] === 'unverified'
-            || $fastResult['confidence'] < $fastConfidenceThreshold;
+        $tally = ['true' => 0, 'false' => 0, 'misleading' => 0, 'unverified' => 0];
+        foreach ($valid as $r) {
+            $tally[$r['verdict']] = ($tally[$r['verdict']] ?? 0) + 1;
+        }
+        arsort($tally);
+        $topVerdict  = array_key_first($tally);
+        $topCount    = $tally[$topVerdict];
+        $totalVotes  = array_sum($tally);
+        $agreers     = array_filter($valid, fn($r) => $r['verdict'] === $topVerdict);
+        $avgConf     = array_sum(array_column(array_values($agreers), 'confidence')) / count($agreers);
 
-        $strongEnabled = (bool) config('jachaix.verdict.enable_strong_model', true);
-        $strongMinRemaining = (int) config('jachaix.sla.strong_min_remaining_seconds', 8);
-        $allowStrongPass = $strongEnabled && $strongTimeout >= $strongMinRemaining;
+        // Best explanation: highest confidence among agreers
+        $best = collect($agreers)->sortByDesc('confidence')->first();
+        $bestExplanation  = $best['explanation'] ?? '';
+        $bestDirectAnswer = $best['direct_answer'] ?? null;
+        $bestSources      = collect($agreers)->flatMap(fn($r) => $r['sources'] ?? [])->unique()->values()->all();
 
-        if ($needStrongPass && $allowStrongPass) {
-            $strongResult = $this->runVerdictInference($userPrompt, $evidence, (string)$strongModel, $strongTimeout, 2);
-            if ($strongResult) {
-                return $this->calibrateVerdictWithEvidence($claim, $strongResult, $evidence);
+        if ($topCount === $totalVotes) {
+            // Unanimous
+            $conf = min(0.97, $avgConf * 1.10);
+            $tier = 'high_confidence';
+        } elseif ($topCount >= ceil($totalVotes * 0.75)) {
+            // Strong majority (3/4 or better)
+            $conf = $avgConf;
+            $tier = 'standard';
+        } elseif ($topCount === 2 && $totalVotes === 4) {
+            // Check for 2-2 split
+            $secondCount = array_values($tally)[1] ?? 0;
+            if ($secondCount === 2) {
+                return ['verdict' => 'misleading', 'confidence' => 0.48,
+                        'explanation' => 'Provider consensus is disputed (2–2 split). Claim requires manual review.',
+                        'sources' => $bestSources, 'direct_answer' => null, 'consensus' => 'disputed'];
             }
+            $conf = $avgConf * 0.90;
+            $tier = 'standard';
+        } else {
+            return ['verdict' => 'unverified', 'confidence' => 0.25,
+                    'explanation' => 'Providers could not reach agreement on this claim.',
+                    'sources' => [], 'direct_answer' => null, 'consensus' => 'no_agreement'];
         }
 
-        if ($fastResult) {
-            return $fastResult;
-        }
-
-        return $this->fallbackVerdictFromEvidence($claim, $evidence, 'verdict_generation_unavailable');
+        return [
+            'verdict'      => $topVerdict,
+            'confidence'   => round($conf, 4),
+            'explanation'  => $bestExplanation,
+            'sources'      => $bestSources,
+            'direct_answer'=> $bestDirectAnswer,
+            'consensus'    => $tier,
+        ];
     }
 
     private function remainingStepTimeout(?float $deadlineAt, int $preferredSeconds, int $reserveSeconds = 2): int
@@ -1116,14 +2001,20 @@ class ProcessAnalysisJob implements ShouldQueue
             'messages'        => [
                 [
                     'role'    => 'system',
-                    'content' => 'You are a Bangla and English fact-checking AI. Analyze the claim against the provided evidence. You MUST respond with ONLY a valid JSON object - no markdown, no explanation outside the JSON. The JSON must have exactly these keys: "verdict" (one of: "true", "false", "misleading", "unverified"), "confidence" (float 0.0-1.0), "explanation" (2-3 sentences), "sources" (array of URLs). Be conservative - if evidence is weak or missing, use "unverified" with low confidence.',
+                    'content' => 'You are a multilingual fact-checking AI for Bangla, English, and Banglish claims.'
+                        . ' Analyze the claim strictly against the provided evidence.'
+                        . ' CRITICAL RULES: (1) Base your verdict ONLY on the evidence provided — do NOT use your training knowledge.'
+                        . ' (2) If evidence is weak, contradictory, or missing, use "unverified".'
+                        . ' (3) Do NOT invent facts, statistics, or dates not present in the evidence.'
+                        . ' (4) If asked a question, set direct_answer only if evidence clearly supports it; otherwise null.'
+                        . ' Respond with ONLY valid JSON with keys: "verdict" ("true"|"false"|"misleading"|"unverified"), "confidence" (0.0–1.0), "explanation" (2–3 sentences), "sources" (array of URLs), "direct_answer" (string or null).',
                 ],
                 [
                     'role'    => 'user',
                     'content' => $userPrompt,
                 ],
             ],
-            'max_tokens' => 500,
+            'max_tokens' => 600,
         ], $timeoutSeconds, $attempts);
 
         if (!$response || $response->failed()) {
@@ -1166,11 +2057,31 @@ class ProcessAnalysisJob implements ShouldQueue
         $clean = preg_replace('/^```(?:json)?\s*/i', '', trim($content));
         $clean = preg_replace('/\s*```$/', '', $clean);
 
+        // Primary: balanced {...} block (greedy to last closing brace)
         if (preg_match('/\{.*\}/s', $clean, $matches)) {
             $decoded = json_decode($matches[0], true);
-        } else {
-            $decoded = json_decode($clean, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
         }
+        $decoded = json_decode($clean, true);
+        if (is_array($decoded)) {
+            return $decoded;
+        }
+
+        // Repair: truncated JSON (model hit token cap mid-object). Close any open
+        // string, then balance brackets/braces so a partial verdict is still usable.
+        $start = strpos($clean, '{');
+        if ($start === false) {
+            return null;
+        }
+        $frag = substr($clean, $start);
+        if (substr_count($frag, '"') % 2 === 1) {
+            $frag .= '"';
+        }
+        $frag .= str_repeat(']', max(0, substr_count($frag, '[') - substr_count($frag, ']')));
+        $frag .= str_repeat('}', max(0, substr_count($frag, '{') - substr_count($frag, '}')));
+        $decoded = json_decode($frag, true);
 
         return is_array($decoded) ? $decoded : null;
     }
@@ -1283,7 +2194,15 @@ class ProcessAnalysisJob implements ShouldQueue
             $topEvidenceRelevance = max($topEvidenceRelevance, (float) ($item['claim_relevance'] ?? 0.0));
         }
 
-        if ($relevance < $decisiveRelevanceMin && $topEvidenceRelevance < 0.34) {
+        // When multiple providers strongly agree on a definitive verdict, trust it even if
+        // token-overlap relevance is low — this is how universal facts ("dog has four legs",
+        // verified via general knowledge under the tiered policy) survive the relevance guards.
+        $consensusTier       = (string) ($llmResult['consensus'] ?? '');
+        $consensusConfidence = (float) ($llmResult['confidence'] ?? 0.0);
+        $stronglyAgreed      = in_array($consensusTier, ['high_confidence', 'standard'], true)
+            && $consensusConfidence >= 0.75;
+
+        if (!$stronglyAgreed && $relevance < $decisiveRelevanceMin && $topEvidenceRelevance < 0.34) {
             $llmResult['verdict'] = 'unverified';
             $llmResult['confidence'] = min((float) ($llmResult['confidence'] ?? 0.0), 0.20);
             $llmResult['explanation'] = 'Retrieved evidence is not directly relevant enough to justify a definitive verdict, so the claim remains unverified.';
@@ -1309,6 +2228,21 @@ class ProcessAnalysisJob implements ShouldQueue
         $signal = $this->deriveEvidenceSignal($claim, $evidence);
         $llmVerdict = (string) ($llmResult['verdict'] ?? 'unverified');
         $llmConfidence = (float) ($llmResult['confidence'] ?? 0.0);
+
+        // A "false" verdict must be backed by evidence that ACTIVELY contradicts the claim —
+        // not by mere absence of supporting evidence. Without this guard a common-sense claim
+        // like "dog has four legs" (no news coverage → keyword-matched but irrelevant web hits)
+        // wrongly becomes "false" instead of "unverified".
+        $signalBacksFalse =
+            ($signal['verdict'] === 'false'      && $signal['strength'] >= 0.50) ||
+            ($signal['verdict'] === 'misleading' && $signal['strength'] >= 0.60);
+        if ($llmVerdict === 'false' && !$signalBacksFalse && !$stronglyAgreed) {
+            $llmResult['verdict']     = 'unverified';
+            $llmResult['confidence']  = min($llmConfidence, 0.30);
+            $llmResult['explanation'] = trim(($llmResult['explanation'] ?? '')
+                . ' The retrieved evidence does not actively contradict the claim, so it is marked unverified rather than false.');
+            return $llmResult;
+        }
 
         // If evidence strongly contradicts the claim, avoid returning "true" with weak confidence.
         if ($signal['strength'] >= 0.70 && $signal['verdict'] === 'false' && $llmVerdict === 'true' && $llmConfidence < 0.80) {
@@ -1682,6 +2616,34 @@ class ProcessAnalysisJob implements ShouldQueue
         return null;
     }
 
+    /**
+     * Detect sentence-level negation in Bangla / Banglish / English claims.
+     * Used to invert canonical fact shortcuts — e.g. "Dhaka is NOT the capital" must be false.
+     */
+    private function claimHasNegation(string $claim): bool
+    {
+        $text = ' ' . mb_strtolower(trim($claim)) . ' ';
+
+        // Bangla negation particles (substring match — these are unambiguous)
+        foreach (['না', 'নয়', 'নন', 'নেই', 'নাই'] as $w) {
+            if (mb_strpos($text, $w) !== false) {
+                return true;
+            }
+        }
+
+        // Banglish + English standalone negators (word-boundary so we don't match inside words)
+        if (preg_match('/\b(na|noy|noi|nah|nai|nei|not|never|isnt|arent|wasnt|false|mittha|mithya|bhul|vul)\b/u', $text)) {
+            return true;
+        }
+
+        // English contractions: isn't / aren't / wasn't …
+        if (preg_match("/n[\x{2019}']t\b/u", $text)) {
+            return true;
+        }
+
+        return false;
+    }
+
     private function detectCanonicalClaimTruth(string $claim): ?array
     {
         $text = mb_strtolower(trim($claim));
@@ -1748,19 +2710,25 @@ class ProcessAnalysisJob implements ShouldQueue
         $isBangladeshCapitalClaim = $mentionsBangladesh && $mentionsCapital;
 
         if ($isBangladeshCapitalClaim) {
+            $negated = $this->claimHasNegation($claim);
+
             if (str_contains($text, 'dhaka') || str_contains($text, 'ঢাকা')) {
                 return [
-                    'verdict' => 'true',
+                    'verdict' => $negated ? 'false' : 'true',
                     'confidence' => 0.84,
-                    'explanation' => 'Canonical fact check: the capital of Bangladesh is Dhaka.',
+                    'explanation' => $negated
+                        ? 'Canonical fact check: Dhaka is the capital of Bangladesh, so a claim that it is not is false.'
+                        : 'Canonical fact check: the capital of Bangladesh is Dhaka.',
                 ];
             }
 
             if (str_contains($text, 'chittagong') || str_contains($text, 'chattogram') || str_contains($text, 'চট্টগ্রাম')) {
                 return [
-                    'verdict' => 'false',
+                    'verdict' => $negated ? 'true' : 'false',
                     'confidence' => 0.84,
-                    'explanation' => 'Canonical fact check: the capital of Bangladesh is Dhaka, not Chittagong/Chattogram.',
+                    'explanation' => $negated
+                        ? 'Canonical fact check: Chittagong/Chattogram is not the capital of Bangladesh (Dhaka is), so denying it is the capital is correct.'
+                        : 'Canonical fact check: the capital of Bangladesh is Dhaka, not Chittagong/Chattogram.',
                 ];
             }
         }
@@ -1774,19 +2742,25 @@ class ProcessAnalysisJob implements ShouldQueue
         $isBangladeshCurrencyClaim = $mentionsBangladesh && $mentionsCurrency;
 
         if ($isBangladeshCurrencyClaim) {
+            $negated = $this->claimHasNegation($claim);
+
             if (str_contains($text, 'taka') || str_contains($text, 'টাকা')) {
                 return [
-                    'verdict' => 'true',
+                    'verdict' => $negated ? 'false' : 'true',
                     'confidence' => 0.82,
-                    'explanation' => 'Canonical fact check: the official currency of Bangladesh is the taka.',
+                    'explanation' => $negated
+                        ? 'Canonical fact check: the official currency of Bangladesh is the taka, so a claim that it is not is false.'
+                        : 'Canonical fact check: the official currency of Bangladesh is the taka.',
                 ];
             }
 
             if (str_contains($text, 'rupee') || str_contains($text, 'রুপি')) {
                 return [
-                    'verdict' => 'false',
+                    'verdict' => $negated ? 'true' : 'false',
                     'confidence' => 0.82,
-                    'explanation' => 'Canonical fact check: Bangladesh uses taka as the official currency, not rupee.',
+                    'explanation' => $negated
+                        ? 'Canonical fact check: Bangladesh does not use the rupee (it uses the taka), so denying the rupee is correct.'
+                        : 'Canonical fact check: Bangladesh uses taka as the official currency, not rupee.',
                 ];
             }
         }
@@ -1892,10 +2866,22 @@ class ProcessAnalysisJob implements ShouldQueue
             $converted = preg_replace('/\b' . preg_quote($word, '/') . '\b/u', ' ' . (string) $value . ' ', $converted) ?? $converted;
         }
 
-        preg_match_all('/\b\d{1,4}\b/u', $converted, $matches);
-        $numbers = array_map(fn($n) => (int) $n, $matches[0] ?? []);
+        // Bangla Unicode digits → ASCII before pattern matching
+        $banglaDigits = ['০'=>'0','১'=>'1','২'=>'2','৩'=>'3','৪'=>'4','৫'=>'5','৬'=>'6','৭'=>'7','৮'=>'8','৯'=>'9'];
+        $converted    = strtr($converted, $banglaDigits);
 
-        return array_values(array_unique(array_filter($numbers, fn($n) => $n >= 0 && $n <= 3000)));
+        // Extended Bangla large-unit words (add alongside existing entries)
+        $extraBanglaWords = [
+            'শত'=>100,'হাজার'=>1000,'লাখ'=>100000,'কোটি'=>10000000,
+        ];
+        foreach ($extraBanglaWords as $word => $value) {
+            $converted = preg_replace('/\b' . preg_quote($word, '/') . '\b/u', ' ' . (string)$value . ' ', $converted) ?? $converted;
+        }
+
+        preg_match_all('/\b\d{1,8}\b/u', $converted, $matches);
+        $numbers = array_map(fn($n) => (int)$n, $matches[0] ?? []);
+
+        return array_values(array_unique(array_filter($numbers, fn($n) => $n >= 0 && $n <= 99999999)));
     }
 
     private function detectPolarityConflictSignal(string $claim, array $evidence): ?array
@@ -2137,6 +3123,58 @@ class ProcessAnalysisJob implements ShouldQueue
         return $picked;
     }
 
+    /**
+     * Send a lightweight preprocessing request (query rewrite, claim understanding,
+     * HyDE, question normalization) to the fastest available cloud provider.
+     * Priority: Cerebras (1-3s) → Groq → Ollama fallback.
+     * Never blocks the main pipeline — returns null on any failure.
+     */
+    private function postFastPreprocessLlm(array $payload, int $timeoutSeconds = 6): mixed
+    {
+        $providers = config('jachaix.verdict_providers', []);
+
+        // Prefer lowest-timeout enabled provider with a key — Cerebras first, then Groq
+        $preferredOrder = ['cerebras', 'groq', 'openrouter', 'gemini'];
+        $fast = null;
+        foreach ($preferredOrder as $name) {
+            foreach ($providers as $p) {
+                if (($p['name'] ?? '') === $name && !empty($p['enabled']) && !empty($p['api_key'])) {
+                    $fast = $p;
+                    break 2;
+                }
+            }
+        }
+
+        if ($fast) {
+            try {
+                $response = Http::timeout(min($timeoutSeconds, $fast['timeout']))
+                    ->withToken($fast['api_key'])
+                    ->baseUrl($fast['base_url'])
+                    ->post('chat/completions', array_merge($payload, ['model' => $fast['model']]));
+                if ($response->successful()) {
+                    return $response;
+                }
+            } catch (\Throwable) {
+                // fall through to Ollama
+            }
+        }
+
+        // Ollama last resort (may be unavailable in cloud deployments)
+        try {
+            $response = Http::timeout($timeoutSeconds)
+                ->withToken(config('jachaix.llm.api_key'))
+                ->baseUrl(config('jachaix.llm.base_url'))
+                ->post('chat/completions', array_merge($payload, ['model' => config('jachaix.llm.query_model')]));
+            if ($response->successful()) {
+                return $response;
+            }
+        } catch (\Throwable) {
+            // all failed
+        }
+
+        return null;
+    }
+
     private function postLlmWithRetry(array $payload, int $timeoutSeconds = 45, int $maxAttempts = 3)
     {
         $lastResponse = null;
@@ -2188,85 +3226,363 @@ class ProcessAnalysisJob implements ShouldQueue
         $evidenceRelevance = $this->calculateEvidenceRelevance((string) ($claim->claim_text ?? ''), $evidence);
         $translationConfidence = (float) (($claim->normalization_data['translation_confidence'] ?? 0.9));
 
-        // Evidence strength: score based on count (up to 5 pieces = full score)
         $evidenceCount    = count($evidence);
         $evidenceStrength = min(($evidenceCount / 5.0) * $evidenceRelevance, 1.0);
 
-        // Source reliability: average of reliability_score from payloads
         $reliabilities = array_filter(array_map(
-            fn($e) => $e['reliability_score'] ?? $e['score'] ?? null,
+            fn($e) => isset($e['reliability_score']) && (float)$e['reliability_score'] <= 1.0
+                ? (float)$e['reliability_score'] : null,
             $evidence
-        ), fn($v) => $v !== null && $v <= 1.0);
+        ), fn($v) => $v !== null);
         $avgReliability = count($reliabilities) > 0
             ? array_sum($reliabilities) / count($reliabilities)
-            : 0.5; // neutral default if no metadata
+            : 0.5;
 
-        // Language clarity: penalise very short or very long claim texts
-        $claimLen      = mb_strlen($claim->claim_text ?? '');
-        $langClarity   = match(true) {
+        $claimLen    = mb_strlen($claim->claim_text ?? '');
+        $langClarity = match(true) {
             $claimLen < 10  => 0.2,
             $claimLen < 20  => 0.6,
             $claimLen > 500 => 0.7,
             default         => 1.0,
         };
 
-        // Evidence coverage: fraction of returned chunks that have high reranker score
-        // (We use evidence count as proxy — reranker already filtered best ones)
         $coverage = min(($evidenceCount / 3.0) * $evidenceRelevance, 1.0);
 
-        // Verdict alignment: "true"/"false" carry full weight; "misleading" partial; "unverified" penalised
         $verdictWeight = match($verdict) {
-            'true'        => 1.0,
-            'false'       => 0.85,   // false is a strong verdict too
-            'misleading'  => 0.75,
-            'unverified'  => 0.05,
-            default       => 0.5,
+            'true'       => 1.0,
+            'false'      => 0.85,
+            'misleading' => 0.75,
+            'unverified' => 0.05,
+            default      => 0.5,
         };
 
-        // Weighted sum
-        $score = (
-            $evidenceStrength * 0.35 +
-            $avgReliability   * 0.20 +
-            $llmConfidence    * 0.15 +
-            $langClarity      * 0.10 +
-            $coverage         * 0.10 +
-            $verdictWeight    * 0.10
-        );
+        // ── Source triangulation ────────────────────────────────────────────
+        $uniqueSources = collect($evidence)
+            ->map(fn($e) => parse_url((string)($e['url'] ?? ''), PHP_URL_HOST) ?: (string)($e['source'] ?? ''))
+            ->filter()
+            ->unique()
+            ->count();
 
-        if (($claim->language ?? '') === 'banglish') {
+        $triangulationPenalty = 0.0;
+        if ($verdict === 'true' && $uniqueSources < 2) {
+            $triangulationPenalty = 0.12;
+            $llmConfidence        = max(0.0, $llmConfidence - 0.08);
+        }
+        $triangulationBoost = match(true) {
+            $uniqueSources >= 4 => 0.08,
+            $uniqueSources >= 3 => 0.04,
+            default             => 0.0,
+        };
+
+        // ── Provider consensus modifier ─────────────────────────────────────
+        $consensusTier    = $result['consensus'] ?? null;
+        $consensusModifier = match($consensusTier) {
+            'high_confidence'      =>  0.05,
+            'disputed'             => -0.12,
+            'no_evidence',
+            'all_providers_failed' => -0.20,
+            default                =>  0.0,
+        };
+
+        // Weighted sum — 7 dimensions summing to 1.0 weight base
+        $score = (
+            $evidenceStrength  * 0.30 +
+            $avgReliability    * 0.18 +
+            $llmConfidence     * 0.14 +
+            $langClarity       * 0.08 +
+            $coverage          * 0.10 +
+            $verdictWeight     * 0.10 +
+            $triangulationBoost * 0.10
+        ) - $triangulationPenalty + $consensusModifier;
+
+        if (in_array($claim->language ?? '', ['banglish', 'mixed'], true)) {
             $score *= (0.85 + min(0.15, $translationConfidence * 0.15));
         }
 
-        if ($verdict === 'unverified') {
-            $score = min($score, 0.55);
-        }
+        if ($verdict === 'unverified')     { $score = min($score, 0.55); }
+        if ($consensusTier === 'disputed') { $score = min($score, 0.48); }
+        if ($result['evidence_gap'] ?? false) { $score = min($score, 0.15); }
 
         $score = round(min(max($score, 0.0), 1.0), 4);
 
         $trustworthyMin = (float) config('jachaix.trust.label_trustworthy_min', 0.75);
-        $uncertainMin = (float) config('jachaix.trust.label_uncertain_min', 0.45);
-        $suspiciousMin = (float) config('jachaix.trust.label_suspicious_min', 0.20);
+        $uncertainMin   = (float) config('jachaix.trust.label_uncertain_min', 0.45);
+        $suspiciousMin  = (float) config('jachaix.trust.label_suspicious_min', 0.20);
 
         $label = match(true) {
             $score >= $trustworthyMin => 'Trustworthy',
-            $score >= $uncertainMin => 'Uncertain',
-            $score >= $suspiciousMin => 'Suspicious',
-            default        => 'Needs Review',
+            $score >= $uncertainMin   => 'Uncertain',
+            $score >= $suspiciousMin  => 'Suspicious',
+            default                   => 'Needs Review',
         };
 
         return [
             'score'  => $score,
             'label'  => $label,
             'detail' => [
-                'evidence_strength' => round($evidenceStrength, 3),
-                'avg_reliability'   => round($avgReliability, 3),
-                'llm_confidence'    => round($llmConfidence, 3),
-                'lang_clarity'      => round($langClarity, 3),
-                'coverage'          => round($coverage, 3),
-                'verdict_weight'    => round($verdictWeight, 3),
-                'evidence_relevance' => round($evidenceRelevance, 3),
+                'evidence_strength'      => round($evidenceStrength, 3),
+                'avg_reliability'        => round($avgReliability, 3),
+                'llm_confidence'         => round($llmConfidence, 3),
+                'lang_clarity'           => round($langClarity, 3),
+                'coverage'               => round($coverage, 3),
+                'verdict_weight'         => round($verdictWeight, 3),
+                'evidence_relevance'     => round($evidenceRelevance, 3),
                 'translation_confidence' => round($translationConfidence, 3),
+                'source_triangulation'   => $uniqueSources,
+                'provider_consensus'     => $consensusTier ?? 'legacy',
             ],
         ];
+    }
+
+    // ── Question mode helpers ─────────────────────────────────────────────────
+
+    private function detectInputMode(string $text): string
+    {
+        $trimmed = rtrim(trim($text), ' ');
+
+        // Unambiguous question: ends with ?
+        if (str_ends_with($trimmed, '?') || str_ends_with($trimmed, '?')) {
+            return 'question';
+        }
+
+        $lower = mb_strtolower($trimmed);
+
+        // "who" requires extra care — "WHO confirmed..." is WHO (org), not a question.
+        // Only treat "who" as a question starter when followed by an auxiliary verb.
+        if (str_starts_with($lower, 'who ')) {
+            $whoAuxiliaries = ['who is ', 'who are ', 'who was ', 'who were ', 'who has ', 'who have ',
+                               'who had ', 'who will ', 'who would ', 'who can ', 'who could ', 'who did '];
+            $isQuestion = false;
+            foreach ($whoAuxiliaries as $pattern) {
+                if (str_starts_with($lower, $pattern)) {
+                    $isQuestion = true;
+                    break;
+                }
+            }
+            if (!$isQuestion) {
+                return 'claim';
+            }
+            return 'question';
+        }
+
+        $interrogativeStarts = [
+            'is ', 'are ', 'was ', 'were ', 'has ', 'have ', 'had ',
+            'did ', 'does ', 'do ', 'will ', 'would ', 'could ', 'should ', 'can ',
+            'when ', 'where ', 'what ', 'which ', 'why ', 'how ',
+            'ki ', 'kia ', 'kobe ', 'kothay ', 'kon ', 'keno ', 'kemon ',
+        ];
+        foreach ($interrogativeStarts as $start) {
+            if (str_starts_with($lower, $start)) {
+                return 'question';
+            }
+        }
+
+        // Bangla question starters
+        $banglaStarters = ['কি ', 'কী ', 'কে ', 'কোন', 'কখন', 'কোথায়', 'কেন', 'কেমন', 'কীভাবে'];
+        foreach ($banglaStarters as $start) {
+            if (str_starts_with($trimmed, $start)) {
+                return 'question';
+            }
+        }
+
+        return 'claim';
+    }
+
+    private function normalizeQuestion(string $question, string $language, ?float $deadlineAt = null): ?string
+    {
+        $timeout = $this->remainingStepTimeout($deadlineAt, (int) config('jachaix.verdict.question_normalize_timeout', 3), 10);
+        if ($timeout <= 0) {
+            return null;
+        }
+        $response = $this->postFastPreprocessLlm([
+            'stream'      => false,
+            'temperature' => 0,
+            'messages'    => [
+                ['role' => 'system', 'content' => 'Convert questions into verifiable factual claims. Return ONLY the claim sentence, nothing else.'],
+                ['role' => 'user',   'content' => "Convert this question into a verifiable factual claim:\nQuestion: \"{$question}\"\nReturn only the claim sentence."],
+            ],
+            'max_tokens' => 80,
+        ], $timeout);
+        if (!$response) return null;
+        $text = trim($response->json('choices.0.message.content', '') ?? '');
+        return (mb_strlen($text) >= 5) ? $text : null;
+    }
+
+    // ── Semantic query intelligence ───────────────────────────────────────────
+
+    private function understandClaim(string $claim, string $language, ?float $deadlineAt = null): ?array
+    {
+        $timeout = $this->remainingStepTimeout($deadlineAt, (int) config('jachaix.verdict.claim_understanding_timeout', 5), 8);
+        if ($timeout <= 0) {
+            return null;
+        }
+        $response = $this->postFastPreprocessLlm([
+            'stream'          => false,
+            'temperature'     => 0,
+            'response_format' => ['type' => 'json_object'],
+            'messages'        => [
+                ['role' => 'system', 'content' => 'Extract structured metadata from a claim. Return ONLY valid JSON.'],
+                ['role' => 'user',   'content' => "Analyze this claim and return JSON with keys: \"core_assertion\" (1 clear sentence), \"entities\" (array of named persons/orgs/places/dates/numbers), \"topic\" (one of: health|politics|crime|economics|environment|sports|technology|social|international|religion), \"temporal_context\" (e.g. \"2024\", \"recent\", \"historical\"), \"negation\" (bool), \"search_intent\" (2-3 keywords for finding confirming/refuting evidence).\n\nClaim: \"{$claim}\""],
+            ],
+            'max_tokens' => 200,
+        ], $timeout);
+        if (!$response) return null;
+        $content = $response->json('choices.0.message.content', '');
+        $decoded = $this->decodeJsonFromLlmContent((string) $content);
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    private function generateHypotheticalEvidence(string $claim, string $language, ?float $deadlineAt = null): ?string
+    {
+        $timeout = $this->remainingStepTimeout($deadlineAt, (int) config('jachaix.verdict.hyde_timeout', 5), 8);
+        if ($timeout <= 0) {
+            return null;
+        }
+        $response = $this->postFastPreprocessLlm([
+            'stream'      => false,
+            'temperature' => 0.3,
+            'messages'    => [
+                ['role' => 'system', 'content' => 'You are a news article writer. Write a brief, realistic news passage that would confirm or refute the given claim. Use specific facts, dates, and sources as if it were a real article.'],
+                ['role' => 'user',   'content' => "Write a 3-sentence news passage that would confirm or refute this claim:\n\"{$claim}\"\nWrite as a factual news report with specific details."],
+            ],
+            'max_tokens' => 150,
+        ], $timeout);
+        if (!$response) return null;
+        $text = trim($response->json('choices.0.message.content', '') ?? '');
+        return (mb_strlen($text) >= 30) ? $text : null;
+    }
+
+    // ── Evidence sufficiency gate ─────────────────────────────────────────────
+
+    private function assessEvidenceSufficiency(array $evidence, string $claim, ?float $minScore = null): array
+    {
+        // When reranker failed, only Qdrant cosine scores exist — they're recall-biased.
+        // Require a much higher threshold so irrelevant articles don't block web fallback.
+        $hasRerankScores = !empty(array_filter($evidence, fn($e) => isset($e['rerank_score'])));
+        $configMin       = (float) config('jachaix.retrieval.decisive_relevance_min', 0.62);
+        $defaultMin      = $hasRerankScores ? $configMin : 0.82;
+        $threshold       = $minScore !== null ? ($hasRerankScores ? $minScore : max($minScore, 0.82)) : $defaultMin;
+        $count    = count($evidence);
+        $decisive = array_filter($evidence, fn($e) =>
+            ($e['rerank_score'] ?? $e['score'] ?? 0) >= $threshold
+        );
+        $topScore = $count > 0 ? max(array_map(fn($e) => (float)($e['rerank_score'] ?? $e['score'] ?? 0), $evidence)) : 0.0;
+        $avgScore = $count > 0 ? array_sum(array_map(fn($e) => (float)($e['rerank_score'] ?? $e['score'] ?? 0), $evidence)) / $count : 0.0;
+        return [
+            'is_sufficient'  => count($decisive) >= 1,
+            'decisive_count' => count($decisive),
+            'total_count'    => $count,
+            'top_score'      => round($topScore, 3),
+            'avg_score'      => round($avgScore, 3),
+        ];
+    }
+
+    private function buildEvidenceGapResult(string $claim, string $language, string $inputMode): array
+    {
+        $isQuestion = ($inputMode === 'question');
+        $isBangla   = in_array($language, ['bn', 'banglish', 'mixed'], true);
+
+        if ($isBangla) {
+            $explanation = $isQuestion
+                ? 'আমাদের জ্ঞানভান্ডারে এই প্রশ্নের উত্তর দেওয়ার মতো যথেষ্ট তথ্য পাওয়া যায়নি। এর মানে এই নয় যে দাবিটি মিথ্যা — আমাদের উৎসগুলো এখনো এই বিষয় কভার করেনি। সরাসরি বিশ্বস্ত সূত্র যেমন BBC Bangla বা UN News দেখুন।'
+                : 'এই দাবিটি যাচাই করার মতো যথেষ্ট তথ্য পাওয়া যায়নি। রায়: অযাচাইযোগ্য — পর্যাপ্ত উৎস নেই।';
+        } else {
+            $explanation = $isQuestion
+                ? 'We could not find sufficient evidence in our knowledge base to answer this question. This does not mean the claim is false — our sources may not cover this topic yet. Please check trusted sources like Reuters, BBC, or WHO directly.'
+                : 'We could not find sufficient evidence in our knowledge base to verify this claim. Our sources may not cover this topic yet. Verdict: Unverified — Not enough sources.';
+        }
+
+        return [
+            'verdict'      => 'unverified',
+            'confidence'   => 0.10,
+            'explanation'  => $explanation,
+            'sources'      => [],
+            'direct_answer'=> null,
+            'input_mode'   => $inputMode,
+        ];
+    }
+
+    // ── STEP 4.5: Contextual compression ─────────────────────────────────────
+
+    private function compressEvidenceContext(string $claim, array $evidence, ?float $deadlineAt = null): array
+    {
+        if (empty($evidence) || !(bool) config('jachaix.retrieval.enable_compression', true)) {
+            return $evidence;
+        }
+        $timeout = $this->remainingStepTimeout($deadlineAt, (int) config('jachaix.retrieval.compression_timeout', 5), 5);
+        if ($timeout <= 0) {
+            return $evidence;
+        }
+        try {
+            $response = Http::retry(1, 200)
+                ->timeout($timeout)
+                ->post(config('jachaix.services.reranker_url') . '/compress', [
+                    'query'                  => $claim,
+                    'documents'              => $evidence,
+                    'max_sentences_per_doc'  => 3,
+                ]);
+            if ($response->failed()) {
+                return $evidence;
+            }
+            return $response->json('results', $evidence);
+        } catch (\Throwable) {
+            return $evidence;
+        }
+    }
+
+    // ── Temporal marker detection ─────────────────────────────────────────────
+
+    private function detectTemporalClaimMarkers(string $claim): array
+    {
+        $lower   = mb_strtolower($claim);
+        $markers = [
+            'past'    => ['was', 'were', 'had', 'ছিল', 'হয়েছিল', 'করেছিল', 'ago', 'last year', 'গত বছর', 'previously'],
+            'present' => ['is', 'are', 'has', 'আছে', 'হচ্ছে', 'currently', 'now', 'এখন', 'বর্তমানে', 'today'],
+            'future'  => ['will', 'going to', 'হবে', 'করবে', 'expected', 'upcoming'],
+        ];
+        $detected = [];
+        foreach ($markers as $tense => $words) {
+            foreach ($words as $w) {
+                if (str_contains($lower, $w)) {
+                    $detected[] = $tense;
+                    break;
+                }
+            }
+        }
+        return array_unique($detected);
+    }
+
+    // ── Self-learning: auto feedback signal ───────────────────────────────────
+
+    private function writeAutoFeedbackSignal(array $result, array $evidence): void
+    {
+        try {
+            $verdict    = $result['verdict']    ?? 'unverified';
+            $confidence = $result['confidence'] ?? 0.0;
+            $signalType = match(true) {
+                $confidence >= 0.75 && $verdict !== 'unverified' => 'auto_high_confidence',
+                $confidence < 0.45  => 'auto_low_confidence',
+                default             => null,
+            };
+            if (!$signalType) {
+                return;
+            }
+            // Only insert if table exists (graceful degradation before migration runs)
+            if (!\Illuminate\Support\Facades\Schema::hasTable('feedback_signals')) {
+                return;
+            }
+            DB::table('feedback_signals')->insert([
+                'claim_id'         => $this->claim->id,
+                'signal_type'      => $signalType,
+                'original_verdict' => $verdict,
+                'confidence'       => $confidence,
+                'source_names'     => json_encode(array_slice(array_unique(array_column($evidence, 'source')), 0, 5)),
+                'chunk_ids'        => json_encode(array_slice(array_column($evidence, 'qdrant_id'), 0, 10)),
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ]);
+        } catch (\Throwable) {
+            // Never fail the main pipeline
+        }
     }
 }

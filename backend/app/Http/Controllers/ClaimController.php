@@ -8,6 +8,8 @@ use App\Models\Claim;
 use App\Support\ClaimLanguage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class ClaimController extends Controller
@@ -61,6 +63,22 @@ class ClaimController extends Controller
             inputType: 'pdf',
             rawInput: $filePath,
             filePath: $filePath,
+            language: ClaimLanguage::normalizeLanguage($validated['language'] ?? null),
+            ipAddress: $request->ip()
+        );
+    }
+
+    public function analyzeUrl(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'url'      => 'required|url|max:2048',
+            'language' => 'sometimes|string|max:20',
+        ]);
+
+        return $this->createClaimAndDispatch(
+            inputType: 'url',
+            rawInput: $validated['url'],
+            filePath: null,
             language: ClaimLanguage::normalizeLanguage($validated['language'] ?? null),
             ipAddress: $request->ip()
         );
@@ -347,6 +365,46 @@ class ClaimController extends Controller
         }
 
         return $url;
+    }
+
+    public function submitFeedback(Request $request, int $id): JsonResponse
+    {
+        $claim = Claim::findOrFail($id);
+
+        if ($claim->status !== 'completed') {
+            return response()->json(['error' => 'Feedback can only be submitted after the verdict is ready.'], 422);
+        }
+
+        $validated = $request->validate([
+            'correct'           => 'required|boolean',
+            'corrected_verdict' => 'sometimes|nullable|string|in:true,false,misleading,unverified',
+            'notes'             => 'sometimes|nullable|string|max:500',
+        ]);
+
+        if (!Schema::hasTable('feedback_signals')) {
+            return response()->json(['message' => 'Feedback received.'], 200);
+        }
+
+        DB::table('feedback_signals')->insert([
+            'claim_id'          => $claim->id,
+            'signal_type'       => $validated['correct'] ? 'user_correct' : 'user_incorrect',
+            'original_verdict'  => $claim->verdict ?? 'unverified',
+            'corrected_verdict' => $validated['corrected_verdict'] ?? null,
+            'confidence'        => $claim->confidence_score,
+            'notes'             => $validated['notes'] ?? null,
+            'source_names'      => json_encode(
+                collect(is_array($claim->sources) ? $claim->sources : [])
+                    ->pluck('source')
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all()
+            ),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['message' => 'Thank you — your feedback helps improve verdict accuracy.'], 200);
     }
 
     private function buildHumanVerificationSection(Claim $claim, array $crossVerificationLinks): array
