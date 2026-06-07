@@ -3717,3 +3717,862 @@ a.cr-src-title:hover { color: #16a34a; }
   .cr-meta-table { grid-template-columns: 1fr; }
   .cr-meta-cell { border-right: 0 !important; }
 }
+
+/* ============================================================
+   Light Theme App Shell & Dashboard UI (jx- classes)
+   ============================================================ */
+
+.jx-app-shell {
+  display: grid;
+  grid-template-columns: 272px minmax(0, 1fr);
+  min-height: 100vh;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+/* Sidebar */
+.jx-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  border-right: 1px solid #e2e8f0;
+  background: #ffffff;
+  padding: 1.25rem 1rem;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 1.2rem;
+  overflow: hidden;
+}
+
+.jx-sidebar-brand {
+  text-decoration: none;
+  color: #0f172a;
+  display: grid;
+  line-height: 1.1;
+  padding: 0 0.5rem;
+}
+
+.jx-sidebar-brand small {
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.65rem;
+  margin-top: 0.15rem;
+}
+
+.jx-side-nav {
+  display: grid;
+  align-content: start;
+  gap: 0.25rem;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.jx-side-nav a {
+  text-decoration: none;
+  color: #475569;
+  border-radius: 10px;
+  padding: 0.55rem 0.85rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.15s ease;
+}
+
+.jx-side-nav a:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+.jx-side-nav a.active {
+  color: #15803d;
+  background: #f0fdf4;
+}
+
+.jx-side-status {
+  margin-top: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.85rem;
+  background: #f8fafc;
+}
+
+.jx-side-status strong {
+  font-size: 0.82rem;
+  color: #1e293b;
+}
+
+.jx-side-status p {
+  margin: 0.35rem 0 0;
+  color: #64748b;
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+}
+
+.jx-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  margin-right: 0.4rem;
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
+}
+
+/* App Main Content */
+.jx-app-main {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.jx-topbar {
+  padding: 1.25rem 1.6rem 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.8rem;
+  background: #f8fafc;
+}
+
+.jx-topbar h1 {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(1.4rem, 2.2vw, 1.85rem);
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.jx-data-label {
+  margin: 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.jx-topbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.jx-live-chip {
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: #f0fdf4;
+}
+
+.jx-app-content {
+  min-width: 0;
+  padding: 1rem 1.6rem 2rem;
+}
+
+/* Module Shell (Light Theme Dashboard Panels) */
+.jx-page-shell {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.jx-module-hero,
+.jx-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);
+}
+
+.jx-module-hero {
+  padding: 1.5rem;
+}
+
+.jx-panel {
+  padding: 1.5rem;
+}
+
+.jx-hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.jx-module-hero h1,
+.jx-panel h2 {
+  margin: 0.6rem 0 0.3rem;
+  font-family: var(--font-display), sans-serif;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.jx-module-hero h1 {
+  font-size: 1.65rem;
+}
+
+.jx-panel h2 {
+  font-size: 1.35rem;
+}
+
+.jx-eyebrow {
+  margin: 0;
+  color: #16a34a;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.jx-live-pill {
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 0.3rem 0.7rem;
+  background: #f0fdf4;
+}
+
+.jx-subtitle {
+  margin: 0;
+  color: #475569;
+  line-height: 1.6;
+  font-size: 0.95rem;
+  max-width: 700px;
+}
+
+.jx-muted {
+  margin: 0.5rem 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  max-width: 700px;
+}
+
+@media (max-width: 980px) {
+  .jx-app-shell {
+    grid-template-columns: 1fr;
+  }
+  .jx-sidebar {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid #e2e8f0;
+  }
+}
+
+/* ============================================================
+   Auth pages — Login & Register
+   Scoped under .jx-landing (already applied by AppShell)
+   ============================================================ */
+
+/* Active state for the Login nav button when on /login */
+.jx-login--active {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.45) !important;
+}
+
+/* Two-column split layout */
+.jx-auth-page {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: calc(100vh - 72px);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Decorative dot-grid background */
+.jx-auth-bg {
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(circle, rgba(34, 197, 94, 0.06) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ---- Form card (left column) ---- */
+.jx-auth-card {
+  position: relative;
+  z-index: 1;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(2rem, 5vw, 3.5rem) clamp(1.5rem, 5vw, 4rem);
+  border-right: 1px solid #e8eef5;
+}
+
+.jx-auth-card--register {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+  justify-content: flex-start;
+  overflow-y: auto;
+}
+
+.jx-auth-card-header {
+  margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.jx-auth-shield {
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.jx-auth-title {
+  margin: 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(1.5rem, 2.5vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.jx-auth-subtitle {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+/* ---- Form layout ---- */
+.jx-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.jx-auth-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+}
+
+.jx-auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.42rem;
+}
+
+.jx-auth-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.jx-auth-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.jx-auth-forgot {
+  font-size: 0.82rem;
+  color: #16a34a;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.jx-auth-forgot:hover {
+  text-decoration: underline;
+}
+
+.jx-auth-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.jx-auth-input-icon {
+  position: absolute;
+  left: 0.85rem;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.jx-auth-input {
+  width: 100%;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 0.92rem;
+  padding: 0.72rem 2.8rem 0.72rem 2.6rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  font-family: var(--font-body), sans-serif;
+}
+
+.jx-auth-input:focus {
+  border-color: #22c55e;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
+}
+
+.jx-input-error {
+  border-color: #ef4444 !important;
+}
+
+.jx-input-error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+}
+
+.jx-auth-eye {
+  position: absolute;
+  right: 0.75rem;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  line-height: 0;
+}
+
+.jx-auth-eye:hover {
+  color: #475569;
+}
+
+/* ---- Error banner ---- */
+.jx-auth-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 10px;
+  color: #b91c1c;
+  font-size: 0.87rem;
+  padding: 0.75rem 0.9rem;
+  font-weight: 500;
+}
+
+/* ---- Field-level validation error ---- */
+.jx-auth-field-error {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #ef4444;
+  font-weight: 500;
+}
+
+/* ---- Password strength meter ---- */
+.jx-pw-meter {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.35rem;
+}
+
+.jx-pw-bars {
+  display: flex;
+  gap: 3px;
+  flex: 1;
+}
+
+.jx-pw-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: #e2e8f0;
+  transition: background 0.2s ease;
+}
+
+.jx-pw-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  min-width: 38px;
+  text-align: right;
+}
+
+/* Bar fill colors */
+.jx-pw-weak .jx-pw-bar,
+.jx-pw-bar.jx-pw-weak { background: #ef4444; }
+.jx-pw-fair .jx-pw-bar,
+.jx-pw-bar.jx-pw-fair { background: #f59e0b; }
+.jx-pw-good .jx-pw-bar,
+.jx-pw-bar.jx-pw-good { background: #3b82f6; }
+.jx-pw-strong .jx-pw-bar,
+.jx-pw-bar.jx-pw-strong { background: #22c55e; }
+
+/* Label text colors */
+.jx-pw-label.jx-pw-weak  { color: #ef4444; }
+.jx-pw-label.jx-pw-fair  { color: #f59e0b; }
+.jx-pw-label.jx-pw-good  { color: #3b82f6; }
+.jx-pw-label.jx-pw-strong { color: #22c55e; }
+
+/* ---- Terms checkbox ---- */
+.jx-auth-terms {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  color: #475569;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.jx-auth-checkbox {
+  margin-top: 0.15rem;
+  width: 16px;
+  height: 16px;
+  accent-color: #22c55e;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* ---- Submit button ---- */
+.jx-auth-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.82rem 1.5rem;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.97rem;
+  border: 0;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35);
+  font-family: var(--font-body), sans-serif;
+}
+
+.jx-auth-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(22, 163, 74, 0.45);
+}
+
+.jx-auth-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ---- Loading spinner ---- */
+.jx-auth-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: jx-spin 0.65s linear infinite;
+}
+
+@keyframes jx-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---- Divider ---- */
+.jx-auth-divider {
+  position: relative;
+  text-align: center;
+  margin: 1.1rem 0 0.85rem;
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.jx-auth-divider::before,
+.jx-auth-divider::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: calc(50% - 60px);
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.jx-auth-divider::before { left: 0; }
+.jx-auth-divider::after  { right: 0; }
+
+/* ---- Social buttons ---- */
+.jx-auth-socials {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
+.jx-auth-social-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.9rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  font-family: var(--font-body), sans-serif;
+}
+
+.jx-auth-social-btn:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+/* ---- Switch link ---- */
+.jx-auth-switch {
+  margin: 1rem 0 0;
+  text-align: center;
+  font-size: 0.88rem;
+  color: #64748b;
+}
+
+.jx-auth-switch-link {
+  color: #16a34a;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.jx-auth-switch-link:hover {
+  text-decoration: underline;
+}
+
+/* ---- Right panel (dark) ---- */
+.jx-auth-panel {
+  position: relative;
+  z-index: 1;
+  background: #050a16;
+  background-image:
+    radial-gradient(ellipse 60% 55% at 80% 20%, rgba(34, 197, 94, 0.18) 0%, transparent 60%),
+    radial-gradient(circle, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: auto, 28px 28px;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.jx-auth-panel-inner {
+  padding: clamp(2rem, 5vw, 3.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  max-width: 440px;
+}
+
+.jx-auth-panel-brand {
+  display: grid;
+  line-height: 1.1;
+  text-decoration: none;
+}
+
+.jx-auth-panel-brand .jx-brand-name {
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.jx-auth-panel-brand small {
+  color: #6b8aab;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.65rem;
+  margin-top: 0.2rem;
+}
+
+.jx-auth-quote {
+  margin: 0;
+  padding: 1.25rem 1.25rem 1.25rem 1.5rem;
+  border-left: 3px solid #22c55e;
+  background: rgba(34, 197, 94, 0.06);
+  border-radius: 0 10px 10px 0;
+}
+
+.jx-auth-quote p {
+  margin: 0;
+  color: #c8dff0;
+  font-size: 0.96rem;
+  line-height: 1.6;
+  font-style: italic;
+}
+
+.jx-auth-trust-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.jx-auth-trust-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #a8c5e0;
+  font-weight: 500;
+}
+
+.jx-auth-trust-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.jx-auth-features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.jx-auth-features li {
+  color: #a8c5e0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.jx-auth-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.jx-auth-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.jx-auth-stat strong {
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.jx-auth-stat span {
+  color: #6b8aab;
+  font-size: 0.76rem;
+  line-height: 1.3;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 900px) {
+  .jx-auth-page {
+    grid-template-columns: 1fr;
+  }
+
+  .jx-auth-panel {
+    display: none;
+  }
+
+  .jx-auth-card {
+    border-right: 0;
+    min-height: calc(100vh - 72px);
+  }
+}
+
+@media (max-width: 540px) {
+  .jx-auth-card {
+    padding: 1.5rem 1.1rem;
+  }
+
+  .jx-auth-row {
+    grid-template-columns: 1fr;
+  }
+
+  .jx-auth-socials {
+    grid-template-columns: 1fr;
+  }
+
+  .jx-nav-links {
+    display: none;
+  }
+}
+
+/* ============================================================
+   Override global dark-theme rules inside auth pages
+   (global `button`, `label`, `label span` use dark-mode
+   values that conflict with the light-bg auth card)
+   ============================================================ */
+
+/* Reset the global button gradient for all auth card buttons */
+.jx-auth-card button,
+.jx-auth-card .jx-auth-submit,
+.jx-auth-card .jx-auth-social-btn,
+.jx-auth-card .jx-auth-eye {
+  font: inherit;
+}
+
+/* Submit button — override global amber gradient */
+.jx-auth-card .jx-auth-submit {
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: #ffffff;
+  border: 0;
+}
+
+/* Social buttons — override global amber gradient */
+.jx-auth-card .jx-auth-social-btn {
+  background: #ffffff;
+  color: #334155;
+  border: 1.5px solid #e2e8f0;
+}
+
+.jx-auth-card .jx-auth-social-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+/* Eye toggle — override global amber gradient */
+.jx-auth-card .jx-auth-eye {
+  background: transparent;
+  color: #94a3b8;
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* Terms label — override global `label { display: grid }` */
+.jx-auth-card label.jx-auth-terms {
+  display: flex;
+}
+
+/* Field labels — override global `label span { color: var(--muted) }` */
+.jx-auth-card .jx-auth-label {
+  color: #334155;
+}
+
+/* Ensure label spans inside auth don't get dark muted color */
+.jx-auth-card label span {
+  color: inherit;
+  font-size: inherit;
+}

@@ -25,19 +25,19 @@ export function ModuleShell({ label, title, summary, state }: ModuleShellProps) 
           : "Future Integration";
 
   return (
-    <main className="page-shell">
-      <section className="hero-card reveal">
-        <div className="hero-top">
-          <p className="eyebrow">{tx(label)}</p>
-          <div className="live-pill">{stateLabel}</div>
+    <main className="jx-page-shell">
+      <section className="jx-module-hero reveal">
+        <div className="jx-hero-top">
+          <p className="jx-eyebrow">{tx(label)}</p>
+          <div className="jx-live-pill">{stateLabel}</div>
         </div>
         <h1>{tx(title)}</h1>
-        <p className="subtitle">{tx(summary)}</p>
+        <p className="jx-subtitle">{tx(summary)}</p>
       </section>
 
-      <section className="panel reveal delay-1">
+      <section className="jx-panel reveal delay-1">
         <h2>{language === "bn" ? "মডিউল স্ট্যাটাস" : "Module Status"}</h2>
-        <p className="muted">
+        <p className="jx-muted">
           {language === "bn"
             ? "এই অংশটি পূর্ণ অ্যাপ শেলের অংশ হিসেবে গঠন ও স্টাইল করা হয়েছে। ব্যাকএন্ড প্রস্তুতি অনুযায়ী ধাপে ধাপে ফিচার লজিক বিস্তৃত হবে।"
             : "This section is structured and styled as part of the full application shell. Feature logic will be expanded in phased integration according to backend readiness."}

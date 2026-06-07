@@ -33,14 +33,14 @@ export function Navbar() {
   const title = routeKey ? t.topbar.routeTitles[routeKey] : "JachaiX";
 
   return (
-    <header className="topbar">
+    <header className="jx-topbar">
       <div>
-        <p className="data-label">{t.topbar.commandDeck}</p>
+        <p className="jx-data-label">{t.topbar.commandDeck}</p>
         <h1>{title}</h1>
       </div>
-      <div className="topbar-meta">
+      <div className="jx-topbar-meta">
         <LanguageSwitcher />
-        <span className="live-chip">{t.topbar.operationsLive}</span>
+        <span className="jx-live-chip">{t.topbar.operationsLive}</span>
       </div>
     </header>
   );

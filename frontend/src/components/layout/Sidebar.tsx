@@ -32,13 +32,13 @@ export function Sidebar() {
   const { t } = useLanguage();
 
   return (
-    <aside className="sidebar">
-      <div className="brand-block">
-        <p>JachaiX</p>
-        <span>{t.nav.trustSuite}</span>
-      </div>
+    <aside className="jx-sidebar">
+      <Link href="/" className="jx-sidebar-brand" aria-label={t.landing?.brandAria || "JachaiX Home"}>
+        <span className="jx-brand-name">Jachai<span className="jx-brand-x">X</span></span>
+        <small>{t.nav.trustSuite}</small>
+      </Link>
 
-      <nav className="side-nav" aria-label={t.nav.primaryLabel}>
+      <nav className="jx-side-nav" aria-label={t.nav.primaryLabel}>
         {navItems.map((item) => {
           const active = pathname === item.href;
           return (
@@ -49,10 +49,10 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="side-status">
+      <div className="jx-side-status">
         <strong>{t.nav.system}</strong>
         <p>
-          <span className="status-dot" /> {t.nav.connectivity}
+          <span className="jx-status-dot" /> {t.nav.connectivity}
         </p>
       </div>
     </aside>

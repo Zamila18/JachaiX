@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ClaimController;
 use App\Http\Controllers\DocsController;
 use App\Http\Controllers\EvaluationController;
@@ -15,6 +16,16 @@ Route::prefix('v1')->group(function () {
             'service' => 'JachaiX API',
             'version' => '1.0.0',
         ]);
+    });
+
+    // ── Auth (public) ────────────────────────────────────────────────────────
+    Route::post('/auth/register', [AuthController::class, 'register']);
+    Route::post('/auth/login',    [AuthController::class, 'login']);
+
+    // ── Auth (protected) ─────────────────────────────────────────────────────
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/auth/logout', [AuthController::class, 'logout']);
+        Route::get('/auth/me',      [AuthController::class, 'me']);
     });
 
     // Modality-specific endpoints (preferred)

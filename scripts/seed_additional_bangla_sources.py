@@ -3,8 +3,8 @@ from datetime import datetime
 from pathlib import Path
 
 
-RAW_DIR = Path("e:/jachaix/corpus/raw")
-BENCHMARK_PATH = Path("e:/jachaix/scripts/benchmark_claims_human_v1.json")
+RAW_DIR = Path(__file__).resolve().parent.parent / "corpus" / "raw"
+BENCHMARK_PATH = Path(__file__).resolve().parent / "benchmark_claims_human_v1.json"
 
 
 NEW_ARTICLES = [

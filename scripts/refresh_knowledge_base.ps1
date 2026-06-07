@@ -13,22 +13,16 @@ $crawlerStatusPath = Join-Path $repoRoot 'backend\storage\app\crawler_refresh.js
 Set-Location $repoRoot
 
 function Resolve-PythonExecutable {
+    $pythonPath = "C:\Program Files\Python312\python.exe"
+    if (Test-Path $pythonPath) {
+        return $pythonPath
+    }
     $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
-
-    $candidates = @('E:\Python310\python.exe')
     if ($pythonCommand) {
-        $candidates += $pythonCommand.Source
+        return $pythonCommand.Source
     }
-
-    $candidates = @($candidates | Where-Object { $_ -and (Test-Path $_) })
-
-    if (-not $candidates -or $candidates.Count -eq 0) {
-        throw 'No usable Python executable found. Set up Python 3.10+ on E: or ensure python is on PATH.'
-    }
-
-    return ($candidates | Select-Object -First 1)
+    throw 'No usable Python executable found.'
 }
-
 function Invoke-PythonScript {
     param(
         [Parameter(Mandatory=$true)][string]$PythonExe,
