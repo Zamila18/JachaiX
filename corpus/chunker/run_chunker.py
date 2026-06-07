@@ -43,9 +43,23 @@ _SENTENCE_SPLIT = re.compile(r'(?<=[।.!?])\s+')
 def ensure_collection(reset: bool = False):
     r = requests.get(f"{QDRANT_URL}/collections/{COLLECTION}", timeout=5)
     if r.status_code == 200:
-        count = r.json().get("result", {}).get("vectors_count", 0)
-        print(f"Collection '{COLLECTION}' exists — {count} vectors.")
-        if reset:
+        info = r.json().get("result", {})
+        count = info.get("points_count", info.get("vectors_count", 0))
+        # Read the existing collection's vector size (handles named/unnamed vector configs).
+        vec_cfg = ((info.get("config") or {}).get("params") or {}).get("vectors") or {}
+        existing_dim = vec_cfg.get("size")
+        if existing_dim is None and isinstance(vec_cfg, dict):
+            for v in vec_cfg.values():
+                if isinstance(v, dict) and "size" in v:
+                    existing_dim = v["size"]
+                    break
+        print(f"Collection '{COLLECTION}' exists — {count} points, dim={existing_dim}.")
+        # Auto-heal: a stale collection with the wrong dimension (e.g. an old 768-dim
+        # collection left in the qdrant volume) rejects every 1024-dim vector. Recreate it.
+        if existing_dim is not None and existing_dim != VECTOR_SIZE:
+            print(f"  [FIX] Vector dim mismatch (have {existing_dim}, need {VECTOR_SIZE}) — recreating collection.")
+            requests.delete(f"{QDRANT_URL}/collections/{COLLECTION}", timeout=10)
+        elif reset:
             requests.delete(f"{QDRANT_URL}/collections/{COLLECTION}", timeout=10)
             print("Deleted. Recreating...")
         else:
