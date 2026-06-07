@@ -208,8 +208,15 @@ class ProcessAnalysisJob implements ShouldQueue
         // ── STEP 4.5: Contextual compression (trim each doc to relevant sentences) ──
         $reranked = $this->compressEvidenceContext($claimText, $reranked, $deadlineAt);
 
+        // ── Canonical shortcut check (computed once; also gates web fallback) ──
+        // A well-known fact (capital, currency, etc.) needs no web augmentation — pulling
+        // unrelated news would only pollute the displayed sources.
+        $canonicalVerdict = (bool) config('jachaix.verdict.enable_canonical_shortcuts', true)
+            ? $this->detectCanonicalClaimTruth($claimText)
+            : null;
+
         // ── STEP 4.6: Auto-RAG — web fallback using rerank scores (precise relevance) ──
-        if (config('jachaix.retrieval.web_fallback.enabled', true)) {
+        if ($canonicalVerdict === null && config('jachaix.retrieval.web_fallback.enabled', true)) {
             $webMinScore   = (float) config('jachaix.retrieval.web_fallback.min_score', 0.65);
             $kbSufficiency = $this->assessEvidenceSufficiency($reranked, $claimText, $webMinScore);
             if (!$kbSufficiency['is_sufficient']) {
@@ -219,6 +226,15 @@ class ProcessAnalysisJob implements ShouldQueue
                     // Score web hits with the cross-encoder for true relevance instead of the
                     // placeholder 0.75 — drops keyword-matched-but-irrelevant articles.
                     $webResults = $this->rerankEvidence($claimText, $webResults, $deadlineAt);
+                    // Hard relevance gate. rerankEvidence's soft filter falls back to UNFILTERED
+                    // results when everything scores low, which lets off-topic keyword matches
+                    // (e.g. a "child abuse in India" article for a "Dhaka is the capital" claim)
+                    // slip through. Enforce a floor here so genuinely irrelevant articles drop.
+                    $webRelevanceFloor = (float) config('jachaix.retrieval.web_fallback.relevance_floor', 0.30);
+                    $webResults = array_values(array_filter($webResults, fn($r) =>
+                        (float) ($r['claim_relevance'] ?? 0.0) >= $webRelevanceFloor
+                        || (float) ($r['rerank_score'] ?? 0.0) >= 0.50
+                    ));
                 }
                 if (!empty($webResults)) {
                     $reranked     = array_merge($reranked, $webResults);
@@ -250,15 +266,27 @@ class ProcessAnalysisJob implements ShouldQueue
         $trustScore = $this->computeTrustScore($result, $reranked, $this->claim);
 
         // ── STEP 6: Save final result ─────────────────────────────────
-        $sources = !empty($result['sources'])
-            ? $result['sources']
-            : array_values(array_map(fn($e) => [
-                'url'               => $e['url']               ?? '',
-                'title'             => $e['title']             ?? '',
-                'source'            => $e['source']            ?? '',
-                'reliability_score' => $e['reliability_score'] ?? 0.5,
-                'score'             => $e['rerank_score']       ?? $e['score'] ?? 0,
-            ], $reranked));
+        // Always build displayed sources from the actual reranked evidence, filtered to items
+        // that are genuinely relevant to the claim. This keeps source cards well-formed (full
+        // title/domain/score metadata) AND on-topic — never raw URL echoes from the LLM, and
+        // never the off-topic web articles a low-relevance fallback may have pulled in.
+        $displayFloor = (float) config('jachaix.retrieval.display_relevance_floor', 0.25);
+        $relevantEvidence = array_values(array_filter($reranked, fn($e) =>
+            (float) ($e['claim_relevance'] ?? 0.0) >= $displayFloor
+            || (float) ($e['rerank_score'] ?? 0.0) >= 0.50
+        ));
+        // If nothing clears the relevance bar: for canonical facts show no sources (the verdict
+        // stands on its own); otherwise fall back to the top reranked items so we show something.
+        $sourcePool = !empty($relevantEvidence)
+            ? $relevantEvidence
+            : ($canonicalVerdict !== null ? [] : array_slice($reranked, 0, 3));
+        $sources = array_values(array_map(fn($e) => [
+            'url'               => $e['url']               ?? '',
+            'title'             => $e['title']             ?? '',
+            'source'            => $e['source']            ?? '',
+            'reliability_score' => $e['reliability_score'] ?? 0.5,
+            'score'             => $e['rerank_score']       ?? $e['score'] ?? 0,
+        ], $sourcePool));
 
         // Persist auto-feedback signal for self-learning loop
         $this->writeAutoFeedbackSignal($result, $reranked);
@@ -562,17 +590,30 @@ class ProcessAnalysisJob implements ShouldQueue
             $results = array_merge($results, $wiki);
         }
 
+        // ── Bangladesh-specific trusted news sites ──────────────────────────
+        // Targets Prothom Alo, Daily Star, bdnews24, BBC Bangla, etc. directly.
+        // Higher reliability than generic RSS; critical for BD current-events claims.
+        $bdNews = $this->searchBangladeshNewsSites($query, $lang, 3);
+        $results = array_merge($results, $bdNews);
+
+        // ── International authoritative news sources ─────────────────────────
+        // Reuters, AP, BBC World, Al Jazeera, Guardian, UN, etc.
+        // Covers global claims and international events affecting Bangladesh.
+        $intlNews = $this->searchInternationalNewsSites($query, 2);
+        $results  = array_merge($results, $intlNews);
+
         // ── News source: GNews.io (primary) → Google News RSS (backup) ─────
+        // GNews without country filter so international claims also get results.
         $news = [];
         if (!empty($apiKey)) {
             try {
                 $resp = Http::timeout((int) config('jachaix.retrieval.web_fallback.timeout', 12))
                     ->get('https://gnews.io/api/v4/search', [
-                        'q'       => $query,
-                        'token'   => $apiKey,
-                        'lang'    => $lang,
-                        'country' => 'bd',
-                        'max'     => $max,
+                        'q'    => $query,
+                        'token'=> $apiKey,
+                        'lang' => $lang,
+                        'max'  => $max,
+                        // no 'country' filter — allows global coverage
                     ]);
 
                 if ($resp->successful() && !empty($resp->json('articles'))) {
@@ -591,7 +632,10 @@ class ProcessAnalysisJob implements ShouldQueue
             'claim_id' => $this->claim->id,
             'lang'     => $lang,
             'wiki'     => count($wiki),
+            'bd_news'  => count($bdNews),
+            'intl_news'=> count($intlNews),
             'news'     => count($news),
+            'total'    => count($results),
         ]);
 
         return $results;
@@ -641,7 +685,7 @@ class ProcessAnalysisJob implements ShouldQueue
                     continue;
                 }
 
-                $text = $this->normalizeWebText(mb_substr($extract, 0, 600));
+                $text = $this->normalizeWebText(mb_substr($extract, 0, 1500));
                 if (mb_strlen($text) < 80) {
                     continue;
                 }
@@ -684,7 +728,7 @@ class ProcessAnalysisJob implements ShouldQueue
                 }
             }
 
-            $text = $this->normalizeWebText(mb_substr($text, 0, 600));
+            $text = $this->normalizeWebText(mb_substr($text, 0, 1500));
             if (strlen($text) < 80) {
                 continue;
             }
@@ -739,7 +783,7 @@ class ProcessAnalysisJob implements ShouldQueue
                 }
             }
 
-            $text = $this->normalizeWebText(mb_substr($text, 0, 600));
+            $text = $this->normalizeWebText(mb_substr($text, 0, 1500));
             if (strlen($text) < 80) {
                 continue;
             }
@@ -758,6 +802,185 @@ class ProcessAnalysisJob implements ShouldQueue
         return $results;
     }
 
+    // ── Bangladesh-specific trusted news sources (Google News RSS site-filtered) ──
+    // Searches directly within trusted BD news domains so Bangladesh current-events
+    // claims get evidence from sources like Prothom Alo, Daily Star, BBC Bangla, etc.
+    // Uses the Google News RSS `site:` operator — no API key required.
+    private function searchBangladeshNewsSites(string $query, string $lang, int $max = 3): array
+    {
+        $hasBengali = (bool) preg_match('/[\x{0980}-\x{09FF}]/u', $query);
+
+        // Reliable English-language BD outlets
+        $enSites = [
+            'thedailystar.net',
+            'bdnews24.com',
+            'dhakatribune.com',
+            'tbsnews.net',
+            'newagebd.net',
+        ];
+
+        // Reliable Bangla-language BD outlets
+        $bnSites = [
+            'prothomalo.com',
+            'samakal.com',
+            'jugantor.com',
+            'kalerkantho.com',
+            'banglatribune.com',
+        ];
+
+        // Bilingual / international coverage of Bangladesh
+        $biSites = ['bbc.com/bengali', 'dw.com'];
+
+        // For Bangla claims, prioritise Bangla sites; for English/Banglish, English first
+        $sites = $hasBengali
+            ? array_merge($bnSites, $biSites, $enSites)
+            : array_merge($enSites, $biSites, $bnSites);
+
+        // Google News RSS supports site: operator — take top 6 sites to keep URL short
+        $siteFilter = implode(' OR ', array_map(fn($s) => "site:{$s}", array_slice($sites, 0, 6)));
+        $q = mb_substr($query, 0, 100) . ' ' . $siteFilter;
+
+        // BD geo-targeting for both language variants
+        $hlGl = $hasBengali
+            ? 'hl=bn-BD&gl=BD&ceid=BD:bn'
+            : 'hl=en-US&gl=BD&ceid=BD:en';
+
+        $feedUrl = 'https://news.google.com/rss/search?q=' . urlencode($q) . "&{$hlGl}";
+
+        try {
+            $rssBody = Http::timeout(7)
+                ->withOptions(['allow_redirects' => true])
+                ->withHeaders(['User-Agent' => 'Mozilla/5.0 JachaiX/1.0'])
+                ->get($feedUrl)
+                ->body();
+        } catch (\Exception) {
+            return [];
+        }
+
+        $xml = @simplexml_load_string($rssBody);
+        if (!$xml) {
+            return [];
+        }
+
+        // Highest-reliability BD domains — give them a trust boost
+        $topTier = ['thedailystar.net', 'prothomalo.com', 'bdnews24.com', 'dhakatribune.com', 'bbc.com'];
+
+        $results = [];
+        $count   = 0;
+        foreach ($xml->channel->item ?? [] as $item) {
+            if ($count >= $max) break;
+            $url     = (string) ($item->link ?? '');
+            $title   = strip_tags((string) ($item->title ?? ''));
+            $snippet = strip_tags((string) ($item->description ?? ''));
+            if (!$url || !$title) continue;
+
+            $text = $snippet;
+            if (config('jachaix.retrieval.web_fallback.fetch_full', true) && strlen($snippet) < 400) {
+                $fetched = $this->fetchArticleFromUrl($url);
+                if (strlen($fetched) > strlen($snippet)) {
+                    $text = $fetched;
+                }
+            }
+            $text = $this->normalizeWebText(mb_substr($text, 0, 1500));
+            if (strlen($text) < 60) continue;
+
+            $host        = (string) (parse_url($url, PHP_URL_HOST) ?? 'bd_news');
+            $reliability = array_reduce($topTier, fn($carry, $d) => $carry || str_contains($host, $d), false)
+                ? 0.82 : 0.73;
+
+            $results[] = [
+                'text'              => $text,
+                'url'               => $url,
+                'title'             => $title,
+                'source'            => $host,
+                'reliability_score' => $reliability,
+                'retrieval_source'  => 'web_live_bd',
+                'score'             => 0.70,
+                'rerank_score'      => 0.70,
+            ];
+            $count++;
+        }
+
+        return $results;
+    }
+
+    // ── International authoritative news sources (Google News RSS site-filtered) ──
+    // Reuters, AP, BBC World, Al Jazeera, Guardian, UN — for global claims and
+    // international events that touch Bangladesh (sanctions, trade, diplomacy, etc.).
+    private function searchInternationalNewsSites(string $query, int $max = 2): array
+    {
+        $intlSites = [
+            'reuters.com',
+            'apnews.com',
+            'bbc.com',
+            'theguardian.com',
+            'aljazeera.com',
+            'france24.com',
+            'un.org',
+        ];
+
+        $siteFilter = implode(' OR ', array_map(fn($s) => "site:{$s}", array_slice($intlSites, 0, 5)));
+        $q = mb_substr($query, 0, 100) . ' ' . $siteFilter;
+
+        $feedUrl = 'https://news.google.com/rss/search?q=' . urlencode($q) . '&hl=en-US&gl=US&ceid=US:en';
+
+        try {
+            $rssBody = Http::timeout(7)
+                ->withOptions(['allow_redirects' => true])
+                ->withHeaders(['User-Agent' => 'Mozilla/5.0 JachaiX/1.0'])
+                ->get($feedUrl)
+                ->body();
+        } catch (\Exception) {
+            return [];
+        }
+
+        $xml = @simplexml_load_string($rssBody);
+        if (!$xml) {
+            return [];
+        }
+
+        // Wire agencies and public institutions get maximum trust
+        $topTierIntl = ['reuters.com', 'apnews.com', 'bbc.com', 'un.org'];
+
+        $results = [];
+        $count   = 0;
+        foreach ($xml->channel->item ?? [] as $item) {
+            if ($count >= $max) break;
+            $url     = (string) ($item->link ?? '');
+            $title   = strip_tags((string) ($item->title ?? ''));
+            $snippet = strip_tags((string) ($item->description ?? ''));
+            if (!$url || !$title) continue;
+
+            $text = $snippet;
+            if (config('jachaix.retrieval.web_fallback.fetch_full', true) && strlen($snippet) < 400) {
+                $fetched = $this->fetchArticleFromUrl($url);
+                if (strlen($fetched) > strlen($snippet)) {
+                    $text = $fetched;
+                }
+            }
+            $text = $this->normalizeWebText(mb_substr($text, 0, 1500));
+            if (strlen($text) < 60) continue;
+
+            $host        = (string) (parse_url($url, PHP_URL_HOST) ?? 'intl_news');
+            $reliability = array_reduce($topTierIntl, fn($c, $d) => $c || str_contains($host, $d), false)
+                ? 0.90 : 0.78;
+
+            $results[] = [
+                'text'              => $text,
+                'url'               => $url,
+                'title'             => $title,
+                'source'            => $host,
+                'reliability_score' => $reliability,
+                'retrieval_source'  => 'web_live_intl',
+                'score'             => 0.72,
+                'rerank_score'      => 0.72,
+            ];
+            $count++;
+        }
+
+        return $results;
+    }
+
     // ── Store web results back to KB (self-learning loop) ────────────────────
     private function storeWebResultsToKb(array $webResults): void
     {
@@ -766,8 +989,9 @@ class ProcessAnalysisJob implements ShouldQueue
 
         foreach ($webResults as $item) {
             try {
-                $cleanText = $this->normalizeWebText($item['title'] . ' ' . $item['text']);
-                $embResp   = Http::timeout(10)->post($embedderUrl . '/embed/text', ['text' => $cleanText]);
+                // Embed a focused 700-char snapshot for a sharp, precise vector
+                $embedText = $this->normalizeWebText($item['title'] . ' ' . mb_substr($item['text'], 0, 700));
+                $embResp   = Http::timeout(10)->post($embedderUrl . '/embed/text', ['text' => $embedText]);
                 if (!$embResp->successful()) {
                     continue;
                 }
@@ -1758,7 +1982,10 @@ class ProcessAnalysisJob implements ShouldQueue
         }
 
         $evidenceNote = $evidenceLimited
-            ? "\nNOTE: The retrieved evidence is limited or only loosely related. Return \"true\" or \"false\" ONLY if this is a universally-established, non-controversial fact you are certain of through well-established general knowledge (basic science, biology, geography, math, or definitions). For any contestable, current, statistical, or specific claim where evidence is insufficient, return \"unverified\"."
+            ? "\nNOTE: The retrieved evidence is limited or only loosely related. Apply these rules in order:"
+              . " (a) If a source describes the SAME event or topic as the claim but with a DIFFERENT actor, country, person, organisation, number, date, or outcome, the claim is FALSE (or \"misleading\" if only partly off) — return that verdict and explicitly state what the claim says versus what the source actually says."
+              . " (b) Otherwise return \"true\" or \"false\" ONLY for universally-established, non-controversial facts you are certain of through general knowledge (basic science, biology, geography, math, definitions)."
+              . " (c) For any other contestable, current, statistical, or specific claim that the evidence neither supports nor contradicts, return \"unverified\"."
             : '';
 
         $userPrompt = "{$languageNote}{$understandingNote}{$temporalNote}{$evidenceNote}\n\nClaim: {$claim}\n\nEvidence:\n{$evidenceText}{$questionInstruction}\n\nReturn ONLY valid JSON.";
@@ -1768,11 +1995,13 @@ class ProcessAnalysisJob implements ShouldQueue
             . ' (1) For CONTESTABLE claims — current events, news, statistics, dates, quotes, or claims about specific people, organisations, or places — base your verdict ONLY on the provided evidence and do NOT rely on training knowledge; if the evidence is weak, contradictory, or missing, use "unverified".'
             . ' (2) For UNIVERSALLY-ESTABLISHED, non-controversial facts — basic science, biology, geography, mathematics, and dictionary definitions (e.g. "a dog has four legs", "water boils at 100°C at sea level", "Paris is in France") — you MAY confirm ("true") or refute ("false") using well-established general knowledge even if the evidence does not restate the fact.'
             . ' (3) Do NOT invent specific facts, statistics, names, or dates that are not in the evidence.'
+            . ' (3b) CONTRADICTION = FALSE: if a source covers the same event/topic as the claim but names a DIFFERENT actor, country, person, organisation, number, date, or outcome, the claim is FALSE (or "misleading" if only partly off). Do NOT return "unverified" just because the claim\'s exact wording is missing — name the correct fact from the source instead.'
             . ' (4) If asked a question, set direct_answer only when clearly supported; otherwise null.'
+            . ' (5) The explanation is the most important field. Write 3-5 clear sentences, in the SAME language as the claim, that a general reader can trust. It MUST: (a) state the verdict and why; (b) cite what the evidence actually says — name the outlet/source (e.g. "According to BBC Bangla / Reuters / Prothom Alo...") and summarise the specific facts, figures, dates, or names it reports; (c) for false/misleading, state the CORRECT fact and exactly how the claim differs from it; (d) for unverified, say plainly that the available sources do not cover or confirm this and what kind of source would be needed. Never be vague, never just repeat the claim, and do not invent details beyond the evidence.'
             . ' Respond with ONLY a valid JSON object with keys:'
             . ' "verdict" (one of: "true","false","misleading","unverified"),'
             . ' "confidence" (float 0.0–1.0),'
-            . ' "explanation" (2–3 sentences),'
+            . ' "explanation" (3-5 detailed, evidence-grounded sentences),'
             . ' "sources" (array of source URLs from evidence),'
             . ' "direct_answer" (string or null).';
 
@@ -2624,9 +2853,15 @@ class ProcessAnalysisJob implements ShouldQueue
     {
         $text = ' ' . mb_strtolower(trim($claim)) . ' ';
 
-        // Bangla negation particles (substring match — these are unambiguous)
-        foreach (['না', 'নয়', 'নন', 'নেই', 'নাই'] as $w) {
-            if (mb_strpos($text, $w) !== false) {
+        // Bangla negation particles — match as STANDALONE words only. Substring matching
+        // is wrong here: "না" is a syllable inside ordinary words like নাম (name), জানা
+        // (to know), নাগরিক (citizen) — matching it there flips true facts to false.
+        $banglaNeg = ['না', 'নয়', 'নন', 'নেই', 'নাই'];
+        // Strip Bangla danda (। ॥) + common punctuation mb-safely BEFORE tokenizing.
+        // (Byte-based trim() would corrupt Bangla tokens since "।" shares lead byte 0xE0.)
+        $normalized = preg_replace('/[\x{0964}\x{0965},.!?\"\'()\[\]:;—\-]+/u', ' ', $text) ?? $text;
+        foreach (preg_split('/\s+/u', $normalized) ?: [] as $token) {
+            if (in_array($token, $banglaNeg, true)) {
                 return true;
             }
         }

@@ -46,10 +46,20 @@ def detect_category(title: str, content: str) -> str:
     return 'general'
 
 
+try:
+    from gnews_decoder import decode_google_news_url
+except Exception:
+    def decode_google_news_url(url: str, timeout: int = 15) -> str:  # graceful fallback
+        return url
+
+
 def fetch_full_article(url: str, timeout: int = 12) -> str:
+    # Google News RSS links are encoded redirects — resolve to the real publisher
+    # URL first, otherwise trafilatura only sees Google's JS interstitial page.
+    real_url = decode_google_news_url(url, timeout=timeout)
     try:
         import trafilatura
-        html = trafilatura.fetch_url(url)
+        html = trafilatura.fetch_url(real_url)
         if html:
             text = trafilatura.extract(html, include_comments=False, include_tables=False, no_fallback=False)
             if text and len(text) > 300:
@@ -157,6 +167,16 @@ SOURCES: list[dict[str, Any]] = [
         "url":  "https://bdnews24.com/?widgetName=rssfeed&widgetId=1150&getXmlFeed=true",
         "fallback_urls": ["https://news.google.com/rss/search?q=site:bdnews24.com&hl=en&gl=BD&ceid=BD:en"],
         "language": "en", "reliability_score": 0.85,
+    },
+    {
+        "name": "tbs_news",
+        "url":  "https://news.google.com/rss/search?q=site:tbsnews.net+Bangladesh&hl=en&gl=BD&ceid=BD:en",
+        "language": "en", "reliability_score": 0.80,
+    },
+    {
+        "name": "new_age_bd",
+        "url":  "https://news.google.com/rss/search?q=site:newagebd.net+Bangladesh&hl=en&gl=BD&ceid=BD:en",
+        "language": "en", "reliability_score": 0.78,
     },
     {
         "name": "dawn_pakistan",

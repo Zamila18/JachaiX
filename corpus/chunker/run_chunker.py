@@ -21,6 +21,15 @@ QDRANT_URL   = os.getenv("QDRANT_URL",        "http://qdrant:6333")
 COLLECTION   = os.getenv("QDRANT_COLLECTION", "knowledge_base")
 VECTOR_SIZE  = 1024   # Jina AI jina-embeddings-v3 dense vectors
 
+# MySQL mirror — populates the `knowledge_base` table that powers BM25 hybrid
+# retrieval in the backend. Optional: if the driver/connection is unavailable
+# the chunker still writes to Qdrant (dense search) without failing.
+MYSQL_HOST     = os.getenv("MYSQL_HOST",     "mysql")
+MYSQL_PORT     = int(os.getenv("MYSQL_PORT", "3306"))
+MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "jachaix")
+MYSQL_USER     = os.getenv("MYSQL_USER",     "jachaix")
+MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
+
 # Semantic chunking parameters
 TARGET_CHARS  = 2048  # ~512 tokens at ~4 chars/token
 OVERLAP_CHARS = 256   # ~64 tokens of carry-over between chunks
@@ -148,6 +157,55 @@ def upload_to_qdrant(chunk_id: str, vector: list, payload: dict) -> bool:
         return False
 
 
+# ── Step 4b: MySQL mirror for BM25 hybrid retrieval ──────────────────────────
+
+def mysql_connect():
+    """Return a MySQL connection, or None if unavailable (chunker still runs)."""
+    if not MYSQL_PASSWORD:
+        return None
+    try:
+        import pymysql
+        conn = pymysql.connect(
+            host=MYSQL_HOST, port=MYSQL_PORT, user=MYSQL_USER,
+            password=MYSQL_PASSWORD, database=MYSQL_DATABASE,
+            charset="utf8mb4", autocommit=True, connect_timeout=8,
+        )
+        return conn
+    except Exception as e:
+        print(f"    [MYSQL] connection unavailable ({e}) — BM25 mirror skipped")
+        return None
+
+
+def mysql_upsert_chunk(conn, qdrant_id: str, title: str, content: str, source_url: str,
+                       source_name: str, language: str, reliability: float,
+                       pub_date: str, category: str) -> bool:
+    if conn is None:
+        return False
+    tier = "high" if reliability >= 0.85 else ("medium" if reliability >= 0.7 else "low")
+    sql = (
+        "INSERT INTO knowledge_base "
+        "(title, content, source_url, source_name, language, credibility_tier, "
+        " qdrant_id, reliability_score, published_date, tags, created_at, updated_at) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW(),NOW()) "
+        "ON DUPLICATE KEY UPDATE "
+        " title=VALUES(title), content=VALUES(content), source_url=VALUES(source_url), "
+        " source_name=VALUES(source_name), language=VALUES(language), "
+        " credibility_tier=VALUES(credibility_tier), reliability_score=VALUES(reliability_score), "
+        " published_date=VALUES(published_date), tags=VALUES(tags), updated_at=NOW()"
+    )
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql, (
+                title[:255], content, (source_url or "")[:255], (source_name or "")[:255],
+                (language or "bn")[:10], tier, qdrant_id, reliability,
+                (pub_date or "")[:50], json.dumps([category], ensure_ascii=False),
+            ))
+        return True
+    except Exception as e:
+        print(f"    [MYSQL ERROR] {e}")
+        return False
+
+
 def build_chunk_id(source: str, url: str, title: str, chunk_index: int, chunk_text: str) -> str:
     stable_key = "||".join([
         source.strip().lower(),
@@ -169,6 +227,11 @@ def main():
     args = parser.parse_args()
 
     ensure_collection(reset=args.reset)
+
+    mysql_conn = mysql_connect()
+    mysql_written = 0
+    if mysql_conn:
+        print("MySQL BM25 mirror: connected.")
 
     all_files = sorted(RAW_DIR.glob(args.pattern))
     if not all_files:
@@ -236,6 +299,10 @@ def main():
             ok = upload_to_qdrant(chunk_id, vector, payload)
             if ok:
                 total_uploaded += 1
+                # Mirror into MySQL so BM25 keyword retrieval has the same chunk
+                if mysql_upsert_chunk(mysql_conn, chunk_id, title, chunk_text, url,
+                                      source, language, reliability, pub_date, category):
+                    mysql_written += 1
             else:
                 total_failed += 1
 
@@ -247,6 +314,7 @@ def main():
     print(f"Articles skipped   : {skipped} (content too short)")
     print(f"Chunks uploaded    : {total_uploaded}")
     print(f"Chunks failed      : {total_failed}")
+    print(f"MySQL BM25 mirror  : {mysql_written} rows" + ("" if mysql_conn else " (skipped — no DB)"))
 
     r = requests.get(f"{QDRANT_URL}/collections/{COLLECTION}", timeout=5)
     info = r.json().get("result", {})

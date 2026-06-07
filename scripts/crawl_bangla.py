@@ -48,10 +48,20 @@ def detect_category(title: str, content: str) -> str:
     return 'general'
 
 
+try:
+    from gnews_decoder import decode_google_news_url
+except Exception:
+    def decode_google_news_url(url: str, timeout: int = 15) -> str:  # graceful fallback
+        return url
+
+
 def fetch_full_article(url: str, timeout: int = 12) -> str:
+    # Google News RSS links are encoded redirects — resolve to the real publisher
+    # URL first, otherwise trafilatura only sees Google's JS interstitial page.
+    real_url = decode_google_news_url(url, timeout=timeout)
     try:
         import trafilatura
-        html = trafilatura.fetch_url(url)
+        html = trafilatura.fetch_url(real_url)
         if html:
             text = trafilatura.extract(html, include_comments=False, include_tables=False, no_fallback=False)
             if text and len(text) > 300:
@@ -110,6 +120,21 @@ RSS_SOURCES: list[dict[str, Any]] = [
         "name": "channel_i",
         "url":  "https://news.google.com/rss/search?q=site:channelionline.com&hl=bn&gl=BD&ceid=BD:bn",
         "language": "bn", "reliability_score": 0.78,
+    },
+    {
+        "name": "samakal_bn",
+        "url":  "https://news.google.com/rss/search?q=site:samakal.com&hl=bn&gl=BD&ceid=BD:bn",
+        "language": "bn", "reliability_score": 0.78,
+    },
+    {
+        "name": "jugantor_bn",
+        "url":  "https://news.google.com/rss/search?q=site:jugantor.com&hl=bn&gl=BD&ceid=BD:bn",
+        "language": "bn", "reliability_score": 0.77,
+    },
+    {
+        "name": "kalerkantho_bn",
+        "url":  "https://news.google.com/rss/search?q=site:kalerkantho.com&hl=bn&gl=BD&ceid=BD:bn",
+        "language": "bn", "reliability_score": 0.77,
     },
     {
         "name": "google_news_bd_bn",
