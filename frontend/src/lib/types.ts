@@ -38,19 +38,43 @@ export interface HumanVerification {
   };
 }
 
+export interface TrustBreakdown {
+  evidence_strength?: number;
+  avg_reliability?: number;
+  llm_confidence?: number;
+  lang_clarity?: number;
+  coverage?: number;
+  verdict_weight?: number;
+  evidence_relevance?: number;
+  translation_confidence?: number;
+  source_triangulation?: number;
+  provider_consensus?: string;
+  image_forensics?: { image_verdict: string; confidence: number };
+}
+
+export interface NormalizationData {
+  web_augmented?: boolean;
+  web_sources?: Array<{ title: string; url: string; source: string }>;
+  [key: string]: unknown;
+}
+
 export interface ClaimResult {
   id: number;
   status: string;
-  input_type?: "text" | "image" | "pdf";
+  input_type?: "text" | "image" | "pdf" | "url";
   extracted_text?: string | null;
   claim_text: string;
   language: string;
   verdict: Verdict;
   confidence_score: number | null;
+  trust_label?: string | null;
+  trust_breakdown?: TrustBreakdown | null;
+  normalization?: NormalizationData | null;
   explanation: string;
   sources: SourceItem[];
   cross_verification?: CrossVerification;
   human_verification?: HumanVerification;
+  created_at?: string | null;
 }
 
 export interface PublicFactCheckListItem {

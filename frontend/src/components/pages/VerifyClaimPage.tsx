@@ -386,7 +386,7 @@ export function VerifyClaimPage() {
                     </>
                   )}
                 </div>
-                <p className="vc-format-note">{tx({ en: "Supports: PDF (Max 50MB)", bn: "সমর্থিত: PDF (সর্বোচ্চ ৫০MB)" })}</p>
+                <p className="vc-format-note">{tx({ en: "Supports: PDF (Max 20MB)", bn: "সমর্থিত: PDF (সর্বোচ্চ ২০MB)" })}</p>
                 <div className="vc-lang-row">
                   <label htmlFor="vc-pdf-lang">{tx({ en: "Language", bn: "ভাষা" })}</label>
                   <select id="vc-pdf-lang" value={fileLang} onChange={(e) => setFileLang(e.target.value)}>
@@ -454,7 +454,7 @@ export function VerifyClaimPage() {
                   <p>{tx({ en: "Drag & drop a PDF here", bn: "এখানে PDF টেনে আনুন" })}</p>
                   <p>{tx({ en: "or", bn: "অথবা" })} <label className="vc-browse"><input type="file" accept=".pdf" onChange={(e) => { onFilePick(e); setTab("pdf"); }} />{tx({ en: "click to browse", bn: "ক্লিক করে বেছে নিন" })}</label></p>
                 </div>
-                <p className="vc-format-note">{tx({ en: "Supports: PDF (Max 50MB)", bn: "সমর্থিত: PDF (সর্বোচ্চ ৫০MB)" })}</p>
+                <p className="vc-format-note">{tx({ en: "Supports: PDF (Max 20MB)", bn: "সমর্থিত: PDF (সর্বোচ্চ ২০MB)" })}</p>
               </div>
             </div>
           )}
@@ -633,7 +633,7 @@ export function VerifyClaimPage() {
                 <span className="vc-format-badge pdf">PDF</span>
                 <div>
                   <strong>{tx({ en: "PDF Documents", bn: "PDF ডকুমেন্ট" })}</strong>
-                  <span>PDF (Max 50MB)</span>
+                  <span>PDF (Max 20MB)</span>
                 </div>
               </div>
               <div className="vc-format-item">

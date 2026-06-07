@@ -10,8 +10,13 @@ interface Props {
   claimId: number;
 }
 
-function verdictColor(_v: string | null) {
-  return "#16a34a";
+function verdictColor(v: string | null) {
+  switch ((v ?? "").toLowerCase()) {
+    case "true":        return "#16a34a";
+    case "false":       return "#ef4444";
+    case "misleading":  return "#f59e0b";
+    default:            return "#64748b";
+  }
 }
 
 function confidenceLabel(score: number | null) {
@@ -21,10 +26,16 @@ function confidenceLabel(score: number | null) {
   return          { text: "Low Confidence",    color: "#ef4444" };
 }
 
-function trustLabel(score: number | null) {
+function trustLabelFromString(label: string | null | undefined, score: number | null) {
+  const raw = (label ?? "").toLowerCase();
+  if (raw === "trustworthy")    return { label: "Trustworthy",    desc: "This verdict is supported by strong and reliable evidence from trusted sources.", color: "#16a34a" };
+  if (raw === "uncertain")      return { label: "Uncertain",      desc: "Moderate evidence supports this verdict but additional verification is recommended.", color: "#f59e0b" };
+  if (raw === "suspicious")     return { label: "Suspicious",     desc: "Evidence quality or source reliability is low. Treat with caution.", color: "#ef4444" };
+  if (raw === "very suspicious") return { label: "Very Suspicious", desc: "Multiple trust signals are weak or contradictory.", color: "#dc2626" };
+  // Fall back to score-based derivation
   const n = (score ?? 0) * 100;
-  if (n >= 85) return { label: "Trustworthy",   desc: "This verdict is supported by strong and reliable evidence from trusted sources.", color: "#16a34a" };
-  if (n >= 60) return { label: "Uncertain",     desc: "Moderate evidence supports this verdict but additional verification is recommended.", color: "#f59e0b" };
+  if (n >= 75) return { label: "Trustworthy",   desc: "This verdict is supported by strong and reliable evidence from trusted sources.", color: "#16a34a" };
+  if (n >= 45) return { label: "Uncertain",     desc: "Moderate evidence supports this verdict but additional verification is recommended.", color: "#f59e0b" };
   return         { label: "Unverified",      desc: "Insufficient evidence to determine trustworthiness with confidence.", color: "#64748b" };
 }
 
@@ -165,14 +176,18 @@ export function ClaimResultPage({ claimId }: Props) {
 
   const score = result.confidence_score ?? 0;
   const confLabel = confidenceLabel(result.confidence_score);
-  const trust = trustLabel(result.confidence_score);
+  const trust = trustLabelFromString(result.trust_label, result.confidence_score);
   const vColor = verdictColor(result.verdict);
   const visibleSources = showAllSources ? result.sources : result.sources.slice(0, 3);
 
-  /* Derive synthetic breakdown from overall confidence */
-  const evidenceQ = Math.min(1, score * 1.01);
-  const sourceCred = Math.min(1, score * 1.02);
-  const llmConf = Math.max(0, score * 0.97);
+  /* Use real backend breakdown when available, fall back to score-derived values */
+  const tb = result.trust_breakdown;
+  const evidenceQ  = tb?.evidence_strength  ?? Math.min(1, score * 1.01);
+  const sourceCred = tb?.avg_reliability    ?? Math.min(1, score * 1.02);
+  const llmConf    = tb?.llm_confidence     ?? Math.max(0, score * 0.97);
+
+  const webAugmented = result.normalization?.web_augmented === true;
+  const webSources   = result.normalization?.web_sources ?? [];
 
   return (
     <div className="cr-page">
@@ -189,11 +204,11 @@ export function ClaimResultPage({ claimId }: Props) {
       <div className="cr-meta-bar">
         <div>
           <p className="cr-meta-label">{tx({ en: "Claim ID", bn: "ক্লেম আইডি" })}</p>
-          <p className="cr-meta-id">c{claimId}da6b10-{claimId}67e-4b7f-8e1c-3d8f2a6b7c1f</p>
+          <p className="cr-meta-id">#{claimId}</p>
         </div>
         <div className="cr-meta-right">
           <p className="cr-meta-label">{tx({ en: "Submitted on", bn: "জমা দেওয়া হয়েছে" })}</p>
-          <p className="cr-meta-date">{formatDate(new Date().toISOString())}</p>
+          <p className="cr-meta-date">{formatDate(result.created_at)}</p>
         </div>
       </div>
 
@@ -301,6 +316,23 @@ export function ClaimResultPage({ claimId }: Props) {
             </div>
           )}
 
+          {/* Web-augmentation notice */}
+          {webAugmented && (
+            <div className="cr-web-notice">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.8" strokeLinecap="round" width="16" height="16" aria-hidden><circle cx="12" cy="12" r="9"/><path d="M2 12h20M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>
+              <span>{tx({ en: "Local knowledge base had limited coverage — this verdict draws on live web sources.", bn: "স্থানীয় নলেজবেসে পর্যাপ্ত তথ্য ছিল না — এই রায় লাইভ ওয়েব সূত্র ব্যবহার করেছে।" })}</span>
+              {webSources.length > 0 && (
+                <ul className="cr-web-sources">
+                  {webSources.map((ws, i) => (
+                    <li key={i}>
+                      <a href={ws.url} target="_blank" rel="noreferrer">{ws.title || ws.source}</a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
           {/* Main explanation paragraphs */}
           <div className="cr-exp-body">
             {result.explanation?.split(/\n+/).filter(Boolean).map((para, i) => (
@@ -324,7 +356,7 @@ export function ClaimResultPage({ claimId }: Props) {
             </div>
             <div className="cr-meta-cell">
               <span>{tx({ en: "Submitted At", bn: "জমা দেওয়া হয়েছে" })}</span>
-              <span>{formatDate(new Date().toISOString())}</span>
+              <span>{formatDate(result.created_at)}</span>
             </div>
             <div className="cr-meta-cell">
               <span>{tx({ en: "Language", bn: "ভাষা" })}</span>

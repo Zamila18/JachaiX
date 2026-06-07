@@ -159,7 +159,12 @@ return [
             'timeout'     => 12,
             'min_score'   => (float) env('WEB_FALLBACK_MIN_SCORE', 0.65),
             'enable_wikipedia' => $envBool('WEB_FALLBACK_WIKIPEDIA', true),
+            // Hard floor: drop web articles whose claim relevance is below this even if the
+            // reranker's soft filter let them through (prevents off-topic keyword matches).
+            'relevance_floor'  => (float) env('WEB_FALLBACK_RELEVANCE_FLOOR', 0.30),
         ],
+        // Minimum claim-relevance for an evidence item to be shown as a source to the user.
+        'display_relevance_floor' => (float) env('RETRIEVAL_DISPLAY_RELEVANCE_FLOOR', 0.25),
     ],
 
     'verdict' => [

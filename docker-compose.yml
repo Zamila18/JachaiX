@@ -140,25 +140,21 @@ services:
       QDRANT_URL: http://qdrant:6333
       QDRANT_COLLECTION: knowledge_base
       GNEWS_API_KEY: ${GNEWS_API_KEY:-}
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     networks:
       - jachaix
     restart: unless-stopped
     depends_on:
       - embedder-service
       - qdrant
-    command: >
-      bash -c "
-        pip install requests qdrant-client trafilatura feedparser beautifulsoup4 lxml -q &&
-        python /scripts/crawl_refresh.py --max-per-source 15 --lookback-days 7 &&
-        python /scripts/crawl_bangla.py  --max-per-source 15 --lookback-days 7 &&
-        python /corpus/chunker/run_chunker.py &&
-        while true; do
-          sleep 86400;
-          python /scripts/crawl_refresh.py --max-per-source 15 --lookback-days 2;
-          python /scripts/crawl_bangla.py  --max-per-source 15 --lookback-days 2;
-          python /corpus/chunker/run_chunker.py;
-        done
-      "
+      - mysql
+    # Nightly auto-refresh aligned to 03:00 Asia/Dhaka (see scripts/kb_worker_loop.sh).
+    # Override timing with CRAWL_HOUR / TZ_OFFSET_HOURS env if needed.
+    command: ["bash", "/scripts/kb_worker_loop.sh"]
 
   mcp-server:
     build:
