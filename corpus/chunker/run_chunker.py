@@ -12,6 +12,7 @@ import re
 import time
 import unicodedata
 import uuid
+from datetime import datetime
 from pathlib import Path
 import requests
 
@@ -20,6 +21,12 @@ EMBEDDER_URL = os.getenv("EMBEDDER_URL",      "http://embedder-service:5002/embe
 QDRANT_URL   = os.getenv("QDRANT_URL",        "http://qdrant:6333")
 COLLECTION   = os.getenv("QDRANT_COLLECTION", "knowledge_base")
 VECTOR_SIZE  = 1024   # Jina AI jina-embeddings-v3 dense vectors
+
+_DEFAULT_STATUS_DIR  = Path("/backend/storage/app")
+KB_STATUS_PATH       = Path(os.getenv("KB_STATUS_PATH",
+                             str(_DEFAULT_STATUS_DIR / "knowledge_base_refresh.json")))
+CRAWLER_STATUS_PATH  = Path(os.getenv("STATUS_PATH",
+                             str(_DEFAULT_STATUS_DIR / "crawler_refresh.json")))
 
 # MySQL mirror — populates the `knowledge_base` table that powers BM25 hybrid
 # retrieval in the backend. Optional: if the driver/connection is unavailable
@@ -348,6 +355,36 @@ def main():
             print(f"  [{i+1}] score={hit['score']:.3f} | {p.get('source_name')} | {p.get('source_article_title','')[:50]}")
 
     print("\nQdrant knowledge base ready!")
+
+    # ── Write knowledge_base_refresh.json (read by Laravel /knowledge-base/status) ─
+    try:
+        crawler_status = None
+        if CRAWLER_STATUS_PATH.exists():
+            try:
+                crawler_status = json.loads(CRAWLER_STATUS_PATH.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+
+        kb_status = {
+            "status":           "fresh",
+            "refreshed_at_utc": datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+            "raw_article_files": len(all_files),
+            "chunker_pattern":  args.pattern,
+            "chunker_stats": {
+                "articles_processed": len(all_files) - skipped,
+                "articles_skipped":   skipped,
+                "chunks_uploaded":    total_uploaded,
+                "chunks_failed":      total_failed,
+                "mysql_bm25_rows":    mysql_written,
+                "qdrant_points":      info.get("points_count"),
+            },
+            "crawler_status": crawler_status,
+        }
+        KB_STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        KB_STATUS_PATH.write_text(json.dumps(kb_status, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"Status written → {KB_STATUS_PATH}")
+    except Exception as e:
+        print(f"[WARN] Could not write KB status file: {e}")
 
 
 if __name__ == "__main__":

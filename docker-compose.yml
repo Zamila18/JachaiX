@@ -28,6 +28,25 @@ services:
     networks:
       - jachaix
 
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=900", "--sleep=2"]
+    volumes:
+      - ./backend:/var/www/html
+      - ./scripts:/var/www/scripts:ro
+      - ./corpus:/var/www/corpus
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - mysql
+      - redis
+      - qdrant
+    networks:
+      - jachaix
+    restart: unless-stopped
+
   mysql:
     image: mysql:8.0
     environment:
@@ -82,7 +101,7 @@ services:
       QDRANT_HOST: qdrant
       QDRANT_PORT: 6333
       QDRANT_COLLECTION: knowledge_base
-      JINA_API_KEY: jina_8caf5564e77c45f5b8f93cbe8945ba9dJCUh8VSUmXqsTM0cYIeH87-NptzO
+      JINA_API_KEY: ${JINA_API_KEY:-}
       JINA_MODEL: jina-embeddings-v3
       JINA_DIMS: "1024"
     networks:
@@ -154,7 +173,9 @@ services:
       - mysql
     # Nightly auto-refresh aligned to 03:00 Asia/Dhaka (see scripts/kb_worker_loop.sh).
     # Override timing with CRAWL_HOUR / TZ_OFFSET_HOURS env if needed.
-    command: ["bash", "/scripts/kb_worker_loop.sh"]
+    # `tr -d \r` strips Windows CRLF line endings at launch so the script parses
+    # under bash regardless of how git checked it out on a Windows host.
+    command: ["bash", "-c", "tr -d '\\r' < /scripts/kb_worker_loop.sh | bash"]
 
   mcp-server:
     build:

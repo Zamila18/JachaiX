@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Jobs\ProcessAnalysisJob;
 use App\Models\AuditLog;
 use App\Models\Claim;
+use App\Services\ActivityLogger;
+use App\Services\JwtService;
 use App\Support\ClaimLanguage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +16,33 @@ use Illuminate\Support\Str;
 
 class ClaimController extends Controller
 {
+    public function __construct(
+        private JwtService $jwt,
+        private ActivityLogger $activity,
+    ) {}
+
+    /**
+     * Claim endpoints are public, but if a logged-in user happens to carry a
+     * valid Bearer token we attribute the claim to them (for "My Claims" and
+     * per-user dashboard analytics). Guests stay anonymous (null). Any token
+     * problem silently falls back to anonymous — submission never breaks.
+     */
+    private function resolveUserId(Request $request): ?int
+    {
+        $bearer = $request->bearerToken();
+        if (!$bearer) {
+            return null;
+        }
+        try {
+            $payload = $this->jwt->decode($bearer);
+            if (($payload->get('role') ?? 'user') === 'user') {
+                return (int) $payload->get('sub') ?: null;
+            }
+        } catch (\Throwable $e) {
+            // ignore — treat as anonymous
+        }
+        return null;
+    }
     public function analyzeText(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -121,7 +150,10 @@ class ClaimController extends Controller
         ?string $ipAddress
     ): JsonResponse {
 
+        $userId = $this->resolveUserId(request());
+
         $claim = Claim::create([
+            'user_id'    => $userId,
             'input_type' => $inputType,
             'raw_input'  => $rawInput,
             'file_path'  => $filePath,
@@ -136,6 +168,22 @@ class ClaimController extends Controller
             'metadata'   => ['input_type' => $claim->input_type],
             'ip_address' => $ipAddress,
         ]);
+
+        // Attribute to the user's activity feed + stats only when authenticated.
+        if ($userId) {
+            $preview = Str::limit(trim((string) ($inputType === 'text' ? $rawInput : $inputType . ' upload')), 80);
+            $this->activity->log(
+                $userId,
+                ActivityLogger::CLAIM_SUBMITTED,
+                'Claim submitted',
+                [
+                    'description' => $preview !== '' ? $preview : 'New claim submitted for verification.',
+                    'entity_type' => 'claim',
+                    'entity_id'   => $claim->id,
+                    'metadata'    => ['input_type' => $inputType, 'language' => $language],
+                ]
+            );
+        }
 
         ProcessAnalysisJob::dispatch($claim);
 
@@ -242,6 +290,32 @@ class ClaimController extends Controller
             ],
             'ip_address' => $request->ip(),
         ]);
+
+        // Human review is a gated action — when authenticated, record it for the user.
+        $userId = $this->resolveUserId($request);
+        if ($userId) {
+            $this->activity->log(
+                $userId,
+                ActivityLogger::HUMAN_REVIEW_REQUESTED,
+                'Human review requested',
+                [
+                    'description' => $reason !== '' ? $reason : 'Requested human verification.',
+                    'entity_type' => 'claim',
+                    'entity_id'   => $claim->id,
+                    'metadata'    => ['claim_status' => $claim->status, 'verdict' => $claim->verdict],
+                ],
+                $request
+            );
+
+            \App\Models\Notification::create([
+                'user_id'     => $userId,
+                'type'        => 'REVIEW_REQUESTED',
+                'title'       => 'Human review requested',
+                'message'     => 'Your claim has been sent to the admin review queue.',
+                'entity_type' => 'claim',
+                'entity_id'   => $claim->id,
+            ]);
+        }
 
         return response()->json([
             'success' => true,

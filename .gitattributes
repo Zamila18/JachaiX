@@ -1,0 +1,5 @@
+# Shell scripts MUST be LF so they parse under bash inside Linux containers
+# even when checked out on a Windows host. CRLF breaks parsing (e.g. it
+# crash-looped the kb-worker crawler with `$'\r': command not found`).
+*.sh   text eol=lf
+*.bash text eol=lf

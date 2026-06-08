@@ -1,12 +1,71 @@
 <?php
 
+use App\Http\Controllers\ActivityController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BookmarkController;
 use App\Http\Controllers\ClaimController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SavedSearchController;
 use App\Http\Controllers\DocsController;
 use App\Http\Controllers\EvaluationController;
 use App\Http\Controllers\PublicFactCheckController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+
+    // ── Auth ──────────────────────────────────────────────────────────────────
+    Route::prefix('auth')->group(function () {
+        Route::post('/register', [AuthController::class, 'register']);
+        Route::post('/login',    [AuthController::class, 'login']);
+        Route::post('/logout',   [AuthController::class, 'logout'])->middleware('auth.jwt');
+        Route::get('/me',        [AuthController::class, 'me'])->middleware('auth.jwt');
+    });
+
+    // ── Protected user area (authenticated users) ─────────────────────────────
+    Route::middleware(['auth.jwt', 'role.user'])->prefix('user')->group(function () {
+        Route::get('/profile', fn(\Illuminate\Http\Request $r) => response()->json([
+            'user' => $r->attributes->get('auth_user'),
+        ]));
+
+        // Profile management
+        Route::put('/profile',     [ProfileController::class, 'update']);
+        Route::post('/password',   [ProfileController::class, 'changePassword']);
+        Route::post('/avatar',     [ProfileController::class, 'setAvatar']);
+        Route::delete('/avatar',   [ProfileController::class, 'deleteAvatar']);
+
+        // My Claims (reuses history with verdict/status/q filters)
+        Route::get('/claims',      [ActivityController::class, 'history']);
+
+        // Bookmarks
+        Route::get('/bookmarks',              [BookmarkController::class, 'index']);
+        Route::get('/bookmarks/ids',          [BookmarkController::class, 'ids']);
+        Route::post('/bookmarks',             [BookmarkController::class, 'store']);
+        Route::delete('/bookmarks/{factCheckId}', [BookmarkController::class, 'destroy']);
+
+        // Notifications
+        Route::get('/notifications',              [NotificationController::class, 'index']);
+        Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+        Route::post('/notifications/{id}/read',   [NotificationController::class, 'markRead']);
+        Route::post('/notifications/read-all',    [NotificationController::class, 'markAllRead']);
+
+        // Saved searches
+        Route::get('/saved-searches',         [SavedSearchController::class, 'index']);
+        Route::post('/saved-searches',        [SavedSearchController::class, 'store']);
+        Route::delete('/saved-searches/{id}', [SavedSearchController::class, 'destroy']);
+    });
+
+    // ── Activity & analytics (authenticated users) ────────────────────────────
+    Route::middleware(['auth.jwt', 'role.user'])->prefix('activity')->group(function () {
+        Route::get('/',           [ActivityController::class, 'index']);
+        Route::get('/recent',     [ActivityController::class, 'recent']);
+        Route::get('/statistics', [ActivityController::class, 'statistics']);
+        Route::get('/history',    [ActivityController::class, 'history']);
+    });
+
+    Route::middleware(['auth.jwt', 'role.admin'])->prefix('admin-secure')->group(function () {
+        Route::get('/dashboard', fn() => response()->json(['message' => 'Admin area']));
+    });
 
     // Health check
     Route::get('/health', function () {
