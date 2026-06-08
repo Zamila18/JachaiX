@@ -6,48 +6,65 @@ import { usePathname } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Footer } from "@/components/layout/Footer";
-import { LanguageProvider, useLanguage } from "@/lib/i18n";
-import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
+import { TopNav } from "@/components/layout/TopNav";
+import { UserSidebar } from "@/components/layout/UserSidebar";
+import { LanguageProvider } from "@/lib/i18n";
+import { AuthProvider } from "@/lib/auth";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <LanguageProvider>
-      <AppShellContent>{children}</AppShellContent>
+      <AuthProvider>
+        <AppShellContent>{children}</AppShellContent>
+      </AuthProvider>
     </LanguageProvider>
   );
 }
 
 function AppShellContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const isPublic = pathname === "/" || pathname === "/contact" || pathname === "/scan" || pathname === "/facts" || pathname?.startsWith("/facts/") || pathname?.startsWith("/results/");
-  const { t, tx } = useLanguage();
 
-  if (isPublic) {
+  // Authenticated user area: top nav + user sidebar + light content.
+  const isUserArea = pathname?.startsWith("/user");
+
+  // Centered auth cards / minimal admin: top nav + content (no footer/sidebar).
+  const isAuthCard =
+    pathname === "/login" || pathname === "/register" || pathname === "/admin/dashboard";
+
+  // Public landing-style pages (incl. teammate's /contact): top nav + content + footer.
+  const isLanding =
+    pathname === "/" ||
+    pathname === "/contact" ||
+    pathname === "/scan" ||
+    pathname === "/facts" ||
+    pathname?.startsWith("/facts/") ||
+    pathname?.startsWith("/results/");
+
+  if (isUserArea) {
+    return (
+      <div className="jxu-shell">
+        <TopNav />
+        <div className="jxu-body">
+          <UserSidebar />
+          <main className="jxu-content">{children}</main>
+        </div>
+      </div>
+    );
+  }
+
+  if (isAuthCard) {
     return (
       <div className="landing-shell jx-landing">
-        <header className="jx-topnav">
-          <div className="jx-topnav-inner">
-            <Link href="/" className="jx-brand" aria-label={t.landing.brandAria}>
-              <span className="jx-brand-name">Jachai<span className="jx-brand-x">X</span></span>
-              <small>{t.landing.aiPlatform}</small>
-            </Link>
+        <TopNav />
+        <div className="jx-landing-content">{children}</div>
+      </div>
+    );
+  }
 
-            <nav className="jx-nav-links" aria-label="Homepage">
-              <Link href="/" className={pathname === "/" ? "active" : ""}>{tx({ en: "Home", bn: "হোম" })}</Link>
-              <Link href="/facts" className={pathname === "/facts" ? "active" : ""}>{tx({ en: "Fact Checks", bn: "ফ্যাক্ট চেকস" })}</Link>
-              <Link href="/scan" className={pathname === "/scan" ? "active" : ""}>{tx({ en: "Verify Claim", bn: "যাচাই করুন" })}</Link>
-              <a href="#how">{tx({ en: "How It Works", bn: "যেভাবে কাজ করে" })}</a>
-              <Link href="/dashboard" className={pathname === "/dashboard" ? "active" : ""}>{tx({ en: "About", bn: "সম্পর্কে" })}</Link>
-              <Link href="/contact" className={pathname === "/contact" ? "active" : ""}>{tx({ en: "Contact Us", bn: "যোগাযোগ" })}</Link>
-            </nav>
-
-            <div className="jx-nav-actions">
-              <LanguageSwitcher />
-              <Link href="/dashboard" className="jx-login">{tx({ en: "Log in", bn: "লগ ইন" })}</Link>
-              <Link href="/scan" className="jx-submit">{tx({ en: "Submit Claim", bn: "ক্লেম জমা দিন" })}</Link>
-            </div>
-          </div>
-        </header>
+  if (isLanding) {
+    return (
+      <div className="landing-shell jx-landing">
+        <TopNav />
 
         <div className="jx-landing-content">{children}</div>
 
@@ -109,7 +126,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
               transition: background 0.2s;
             }
             .jx-social-icon:hover { background: rgba(255, 255, 255, 0.1); }
-            
+
             .jx-footer-col h4 {
               color: #ffffff;
               font-size: 0.95rem;
@@ -131,7 +148,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
               transition: color 0.2s;
             }
             .jx-footer-col a:hover { color: #00e676; }
-            
+
             .jx-newsletter p {
               font-size: 0.9rem;
               line-height: 1.5;
@@ -164,7 +181,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
               transition: background 0.2s;
             }
             .jx-newsletter-btn:hover { background: #00c853; }
-            
+
             .jx-footer-bottom {
               max-width: 1200px;
               margin: 1.5rem auto 0;
@@ -227,7 +244,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
                 </a>
               </div>
             </div>
-            
+
             <div className="jx-footer-col">
               <h4>Platform</h4>
               <ul>
@@ -237,7 +254,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
                 <li><Link href="/#how">How It Works</Link></li>
               </ul>
             </div>
-            
+
             <div className="jx-footer-col">
               <h4>Company</h4>
               <ul>
@@ -247,7 +264,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
                 <li><Link href="/contact">Contact Us</Link></li>
               </ul>
             </div>
-            
+
             <div className="jx-footer-col">
               <h4>Support</h4>
               <ul>
@@ -257,7 +274,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
                 <li><Link href="#">Privacy Policy</Link></li>
               </ul>
             </div>
-            
+
             <div className="jx-footer-col jx-newsletter">
               <h4>Newsletter</h4>
               <p>Stay updated with our latest fact checks and platform updates.</p>
@@ -267,7 +284,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
               </form>
             </div>
           </div>
-          
+
           <div className="jx-footer-bottom">
             <div>© 2026 JachaiX. All rights reserved.</div>
             <div className="jx-footer-links">

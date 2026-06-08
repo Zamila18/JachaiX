@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/lib/i18n";
-import { getPublicFactChecks } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { getPublicFactChecks, getBookmarkIds, addBookmark, removeBookmark, saveSearch } from "@/lib/api";
 import type { PublicFactCheckListItem } from "@/lib/types";
 
 
@@ -37,6 +38,10 @@ function HalfCircleGauge({ pct, color }: { pct: number; color: string }) {
 
 export function FactsHubPage() {
   const { tx } = useLanguage();
+  const { token, isAuthenticated } = useAuth();
+
+  const [bookmarkIds, setBookmarkIds] = useState<Set<number>>(new Set());
+  const [savedMsg, setSavedMsg] = useState(false);
 
   const [items, setItems] = useState<PublicFactCheckListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,6 +94,33 @@ export function FactsHubPage() {
   useEffect(() => {
     fetchFacts(currentPage);
   }, [fetchFacts, currentPage]);
+
+  // Load the user's existing bookmarks (for toggle state) when signed in.
+  useEffect(() => {
+    if (!token) { setBookmarkIds(new Set()); return; }
+    getBookmarkIds(token).then(r => setBookmarkIds(new Set(r.ids))).catch(() => {});
+  }, [token]);
+
+  const toggleBookmark = (id: number) => {
+    if (!token) return;
+    const next = new Set(bookmarkIds);
+    if (next.has(id)) {
+      next.delete(id);
+      setBookmarkIds(next);
+      removeBookmark(token, id).catch(() => {});
+    } else {
+      next.add(id);
+      setBookmarkIds(next);
+      addBookmark(token, id).catch(() => {});
+    }
+  };
+
+  const onSaveSearch = () => {
+    if (!token || !tempQuery.trim()) return;
+    saveSearch(token, tempQuery.trim(), { scope: tempScope, verdict: tempVerdict }).catch(() => {});
+    setSavedMsg(true);
+    setTimeout(() => setSavedMsg(false), 2500);
+  };
 
   const applyFilters = () => {
     setQuery(tempQuery);
@@ -284,6 +316,34 @@ export function FactsHubPage() {
           white-space: nowrap;
         }
         .jx-btn-apply:hover { background: #15803d; }
+        .jx-btn-savesearch {
+          background: #fff;
+          color: #15803d;
+          border: 1.5px solid #16a34a;
+          padding: 0.72rem 1.1rem;
+          border-radius: 8px;
+          font-weight: 600;
+          font-size: 0.92rem;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          transition: background 0.15s, color 0.15s;
+          white-space: nowrap;
+        }
+        .jx-btn-savesearch:hover { background: #16a34a; color: #fff; }
+        .jx-fc-bm {
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          font-size: 1rem;
+          line-height: 1;
+          padding: 0.15rem;
+          opacity: 0.7;
+          transition: opacity 0.15s, transform 0.15s;
+        }
+        .jx-fc-bm:hover { opacity: 1; transform: scale(1.15); }
+        .jx-fc-bm.active { opacity: 1; }
 
         .jx-hub-stats {
           display: grid;
@@ -541,6 +601,12 @@ export function FactsHubPage() {
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
               {tx({ en: "Apply Filters", bn: "ফিল্টার প্রয়োগ" })}
             </button>
+            {isAuthenticated && tempQuery.trim() && (
+              <button className="jx-btn-savesearch" onClick={onSaveSearch} type="button">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                {savedMsg ? tx({ en: "Saved!", bn: "সংরক্ষিত!" }) : tx({ en: "Save Search", bn: "অনুসন্ধান সংরক্ষণ" })}
+              </button>
+            )}
           </div>
         </div>
 
@@ -619,7 +685,20 @@ export function FactsHubPage() {
                 <a key={item.id} href={`/facts/${item.slug}`} className="jx-hub-card">
                   <div className="jx-hub-card-top">
                     <span className="jx-hub-card-verdict" style={{ background: color }}>{verdictLabel(item.verdict ?? "unverified")}</span>
-                    <span className="jx-hub-card-region">{item.coverage_scope.toUpperCase()}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <span className="jx-hub-card-region">{item.coverage_scope.toUpperCase()}</span>
+                      {isAuthenticated && (
+                        <button
+                          type="button"
+                          className={`jx-fc-bm ${bookmarkIds.has(item.id) ? "active" : ""}`}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleBookmark(item.id); }}
+                          aria-pressed={bookmarkIds.has(item.id)}
+                          title={bookmarkIds.has(item.id) ? tx({ en: "Remove bookmark", bn: "বুকমার্ক সরান" }) : tx({ en: "Bookmark", bn: "বুকমার্ক" })}
+                        >
+                          {bookmarkIds.has(item.id) ? "🔖" : "🏷️"}
+                        </button>
+                      )}
+                    </span>
                   </div>
                   <h3>{item.title}</h3>
                   <p className="jx-hub-card-summary">{item.summary ?? ""}</p>
