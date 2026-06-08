@@ -1,9 +1,9 @@
 # Product Requirements Document — JachaiX
 
 **Version:** 1.0  
-**Date:** 2026-06-05  
+**Date:** 2026-06-09  
 **Author:** Nasim Zamila (nasimzam@ualberta.ca)  
-**Status:** Draft
+**Status:** Final
 
 ---
 
@@ -11,59 +11,101 @@
 
 ### 1.1 Product Summary
 
-JachaiX is a Bangla-first, AI-powered fake news detection and fact-checking platform. It accepts claims in text, image, or PDF format, retrieves relevant evidence from a curated knowledge base of trusted news sources, and produces a structured verdict with a confidence score and source citations. The platform is purpose-built for Bangladesh and South Asian content but handles international claims as well.
+JachaiX is a global-ready fact-checking product centered on Bangla-language trust and safety. It combines multilingual claim ingestion, AI-powered evidence retrieval, and structured verdict generation to help individuals, media organizations, and platform partners verify claims quickly and reliably.
 
-### 1.2 Problem Statement
+JachaiX is designed to operate as a regional leader for Bangla and South Asian content while supporting global claims through an international knowledge base and API-first integration.
 
-Misinformation spreads rapidly in Bangladesh via social media, messaging apps, and news aggregators. Existing fact-checking tools are predominantly English-only, leaving Bangla, Banglish (romanized Bangla), and mixed-language content largely unchecked. Manual fact-checking by journalists is too slow to match the velocity of viral content. There is no accessible, automated, multilingual fact-checking service optimized for the region.
+### 1.2 Vision
 
-### 1.3 Solution
+Enable trustworthy information discovery anywhere by providing the fastest, most reliable fact-checking experience for Bangla-speaking audiences and international consumers of verified evidence.
 
-A multi-modal RAG (Retrieval-Augmented Generation) pipeline that:
+### 1.3 Problem Statement
 
-1. Accepts claims in text, image, or PDF via a web interface or API.
-2. Detects and normalizes language (Bangla / English / Banglish / mixed).
-3. Retrieves semantically relevant evidence from a continuously refreshed knowledge base.
-4. Reranks evidence with a cross-encoder and runs LLM inference to generate a verdict.
-5. Calibrates confidence using heuristic quality gates and a trust scoring model.
-6. Publishes verified fact-checks to a public hub with SEO-friendly URLs.
+Misinformation spreads across languages and borders faster than traditional fact-checking can keep up. In Bangladesh and South Asia, a shortage of automated tools for Bangla, Banglish, and mixed-language content leaves communities with limited options for rapid verification.
 
-### 1.4 Target Audience
+Current solutions are typically English-first, slow, and disconnected from the editorial and evidence workflows that journalists and policy teams need.
 
-| Persona | Need |
-|---|---|
-| Everyday citizen (Bangladesh) | Quickly verify a viral WhatsApp/Facebook claim |
-| Journalist / editor | Accelerate pre-publication fact verification |
-| Researcher | Audit-logged, evidence-grounded verdicts with source links |
-| Platform integrator | REST API or MCP server to embed fact-checking in a product |
-| Site administrator | Manage published fact-checks and documentation pages |
+### 1.4 Solution
 
----
+JachaiX solves this with a modern, multi-modal fact-checking platform that:
 
-## 2. Goals and Non-Goals
+- Accepts claims as text, image, or PDF.
+- Detects and normalizes Bangla, English, Banglish, mixed, and international claims.
+- Retrieves evidence from curated local and global sources.
+- Uses vector search, reranking, and LLM inference to generate a transparent verdict.
+- Publishes audited results to a browsable hub with source citations.
+- Exposes a REST API and MCP tools for global integrators.
 
-### 2.1 Goals
+### 1.5 Global Product Positioning
 
-- **G1** Deliver a verdict for any text claim within 30 seconds end-to-end (SLA).
-- **G2** Support all three input modalities: plain text, image (with OCR), and PDF.
-- **G3** Handle Bangla, English, Banglish, and mixed-language claims natively.
-- **G4** Retrieve evidence from a continuously refreshed knowledge base sourced from credible international and Bangladeshi outlets.
-- **G5** Expose a public fact-check hub for browsable, published verdicts.
-- **G6** Provide a REST API and MCP server interface for programmatic access.
-- **G7** Surface human-review workflows for low-confidence verdicts.
-- **G8** Maintain complete audit logs for every claim from submission to verdict.
+JachaiX is positioned as a global product with a strong regional specialization:
 
-### 2.2 Non-Goals
-
-- Real-time video or audio fact-checking.
-- User account management, registration, or social features.
-- Fine-tuning or training the underlying LLM models.
-- Manual journalist workflow tooling (JachaiX automates; human review is a fallback, not the primary path).
-- Direct social media integration or browser extension (out of scope for v1).
+- Local-first: deep support for Bangla, Banglish, and mixed-language claims.
+- Global-ready: international evidence sources and English-language API endpoints.
+- Enterprise-friendly: API, MCP, and admin workflows for integration with newsrooms, platforms, and government transparency programs.
 
 ---
 
-## 3. System Architecture
+## 2. Purpose and Scope
+
+### 2.1 Objectives
+
+- Build a performant, evidence-grounded claim verification pipeline.
+- Support multilingual, multi-modal claim ingestion.
+- Deliver structured, explainable verdicts with citations.
+- Publish a public fact-check hub and provide integrator APIs.
+- Instrument the system for operational visibility and trust.
+
+### 2.2 Success Metrics
+
+- Achieve end-to-end verdict delivery within 30 seconds (P95).
+- Maintain verdict precision ≥ 80% on verifiable claims.
+- Keep false-positive rate ≤ 5%.
+- Deliver bilingual UI and localized results.
+- Launch public hub with searchable fact-check URLs.
+- Support REST and MCP integration for external partners.
+
+### 2.3 In Scope
+
+- Text, image, and PDF claim submission.
+- Multilingual claim processing: Bangla, English, Banglish, mixed.
+- Evidence search via Qdrant semantic retrieval.
+- Cross-encoder reranking and LLM verdict generation.
+- Public fact-check publishing with SEO-friendly slugs.
+- Admin content management and document visibility scheduling.
+- Health checks, audit logs, and knowledge base status.
+
+### 2.4 Out of Scope
+
+- Real-time video or audio claim verification.
+- Full user account / authentication suite in v1.
+- Browser extensions or native mobile apps.
+- Training or fine-tuning core language models.
+- Deep social network integrations.
+
+---
+
+## 3. Target Users
+
+### 3.1 Primary Personas
+
+- **Everyday citizen** — quickly validate viral claims from WhatsApp, Facebook, or news articles.
+- **Journalist/editor** — speed up pre-publication verification and reduce editorial risk.
+- **Fact-checking researcher** — audit decisions with transparent evidence and logs.
+- **Platform integrator** — embed verification into third-party products via API or MCP.
+- **Operations lead** — monitor pipeline health and KB freshness.
+
+### 3.2 User Needs
+
+- Fast, definitive answers for disputed claims.
+- Evidence-based explanations with source citations.
+- Language-sensitive handling for Bangla and Banglish.
+- Modalities beyond text: images and PDFs.
+- A trustworthy public repository of verified claims.
+
+---
+
+## 4. System Architecture
 
 ### 3.1 High-Level Components
 
