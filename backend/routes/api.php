@@ -7,6 +7,7 @@ use App\Http\Controllers\ClaimController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SavedSearchController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DocsController;
 use App\Http\Controllers\EvaluationController;
 use App\Http\Controllers\PublicFactCheckController;
@@ -93,6 +94,9 @@ Route::prefix('v1')->group(function () {
     Route::get('/public/fact-checks', [PublicFactCheckController::class, 'index']);
     Route::get('/public/fact-checks/featured', [PublicFactCheckController::class, 'featured']);
     Route::get('/public/fact-checks/{slug}', [PublicFactCheckController::class, 'show']);
+
+    // Contact form
+    Route::post('/public/contact', [ContactController::class, 'send']);
 
     // Editorial/Admin (MVP no-auth routes; secure before production)
     Route::get('/admin/fact-checks/completed-claims', [PublicFactCheckController::class, 'completedClaimsQueue']);

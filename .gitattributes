@@ -3,3 +3,16 @@
 # crash-looped the kb-worker crawler with `$'\r': command not found`).
 *.sh   text eol=lf
 *.bash text eol=lf
+# Ensure shell scripts always use LF line endings in the repo
+*.sh text eol=lf
+
+# Common text files — normalize to LF
+*.php text eol=lf
+*.py  text eol=lf
+*.js  text eol=lf
+*.ts  text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.env  text eol=lf
+Dockerfile* text eol=lf

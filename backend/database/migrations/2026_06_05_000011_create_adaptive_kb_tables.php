@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
+        Schema::dropIfExists('retrieval_logs');
         Schema::create('retrieval_logs', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('claim_id')->index();
@@ -24,6 +25,7 @@ return new class extends Migration {
             $table->index(['claim_id', 'created_at']);
         });
 
+        Schema::dropIfExists('feedback_signals');
         Schema::create('feedback_signals', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('claim_id')->index();
@@ -41,6 +43,7 @@ return new class extends Migration {
             $table->index(['signal_type', 'created_at']);
         });
 
+        Schema::dropIfExists('source_health');
         Schema::create('source_health', function (Blueprint $table) {
             $table->id();
             $table->string('source_name', 100)->unique();
@@ -53,6 +56,7 @@ return new class extends Migration {
             $table->timestamps();
         });
 
+        Schema::dropIfExists('coverage_gaps');
         Schema::create('coverage_gaps', function (Blueprint $table) {
             $table->id();
             $table->string('topic_keywords', 300);
