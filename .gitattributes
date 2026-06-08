@@ -1,0 +1,13 @@
+# Ensure shell scripts always use LF line endings in the repo
+*.sh text eol=lf
+
+# Common text files — normalize to LF
+*.php text eol=lf
+*.py  text eol=lf
+*.js  text eol=lf
+*.ts  text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.env  text eol=lf
+Dockerfile* text eol=lf

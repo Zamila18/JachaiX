@@ -273,6 +273,11 @@ export function HomepagePage() {
               })}
             </p>
           </div>
+
+          {/* Hero graphic */}
+          <div className="jx-hero-graphic">
+            <img src="/logo.png" alt="Verify claims with JachaiX" />
+          </div>
         </div>
 
         <div className="jx-search-outer">
