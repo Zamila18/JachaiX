@@ -351,6 +351,26 @@ class ProcessAnalysisJob implements ShouldQueue
                 'consensus'     => $result['consensus'] ?? null,
             ],
         ]);
+
+        // Notify the submitting user (if authenticated) that their verdict is ready.
+        if ($this->claim->user_id) {
+            try {
+                $verdictLabel = strtoupper((string) $result['verdict']);
+                $preview = \Illuminate\Support\Str::limit(
+                    trim((string) ($this->claim->claim_text ?? $this->claim->raw_input ?? '')), 90
+                );
+                \App\Models\Notification::create([
+                    'user_id'     => $this->claim->user_id,
+                    'type'        => 'VERDICT_READY',
+                    'title'       => "Verdict ready: {$verdictLabel}",
+                    'message'     => $preview !== '' ? $preview : 'Your claim has been verified.',
+                    'entity_type' => 'claim',
+                    'entity_id'   => $this->claim->id,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('Failed to create verdict notification', ['claim_id' => $this->claim->id, 'error' => $e->getMessage()]);
+            }
+        }
     }
 
     public function failed(\Throwable $e): void

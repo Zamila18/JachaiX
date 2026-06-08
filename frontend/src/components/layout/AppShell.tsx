@@ -1,37 +1,40 @@
 "use client";
 
-import Link from "next/link";
 import { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Footer } from "@/components/layout/Footer";
+import { TopNav } from "@/components/layout/TopNav";
+import { UserSidebar } from "@/components/layout/UserSidebar";
 import { LanguageProvider, useLanguage } from "@/lib/i18n";
-import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
+import { AuthProvider } from "@/lib/auth";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <LanguageProvider>
-      <AppShellContent>{children}</AppShellContent>
+      <AuthProvider>
+        <AppShellContent>{children}</AppShellContent>
+      </AuthProvider>
     </LanguageProvider>
   );
 }
 
 function AppShellContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { t } = useLanguage();
   const isPublic = pathname === "/" || pathname === "/contact" || pathname === "/scan" || pathname === "/facts" || pathname?.startsWith("/facts/") || pathname?.startsWith("/results/");
   const { t, tx } = useLanguage();
 
-  if (isPublic) {
-    return (
-      <div className="landing-shell jx-landing">
-        <header className="jx-topnav">
-          <div className="jx-topnav-inner">
-            <Link href="/" className="jx-brand" aria-label={t.landing.brandAria}>
-              <span className="jx-brand-name">Jachai<span className="jx-brand-x">X</span></span>
-              <small>{t.landing.aiPlatform}</small>
-            </Link>
+  const isLanding =
+    pathname === "/" ||
+    pathname === "/scan" ||
+    pathname === "/facts" ||
+    pathname?.startsWith("/facts/") ||
+    pathname?.startsWith("/results/");
 
+  const isAuthCard =
+    pathname === "/login" || pathname === "/register" || pathname === "/admin/dashboard";
             <nav className="jx-nav-links" aria-label="Homepage">
               <Link href="/" className={pathname === "/" ? "active" : ""}>{tx({ en: "Home", bn: "হোম" })}</Link>
               <Link href="/facts" className={pathname === "/facts" ? "active" : ""}>{tx({ en: "Fact Checks", bn: "ফ্যাক্ট চেকস" })}</Link>
@@ -41,16 +44,39 @@ function AppShellContent({ children }: { children: ReactNode }) {
               <Link href="/contact" className={pathname === "/contact" ? "active" : ""}>{tx({ en: "Contact Us", bn: "যোগাযোগ" })}</Link>
             </nav>
 
-            <div className="jx-nav-actions">
-              <LanguageSwitcher />
-              <Link href="/dashboard" className="jx-login">{tx({ en: "Log in", bn: "লগ ইন" })}</Link>
-              <Link href="/scan" className="jx-submit">{tx({ en: "Submit Claim", bn: "ক্লেম জমা দিন" })}</Link>
-            </div>
-          </div>
-        </header>
+  // User area: homepage TopNav on top + user sidebar + light content.
+  const isUserArea = pathname?.startsWith("/user");
 
+  if (isUserArea) {
+    return (
+      <div className="jxu-shell">
+        <TopNav />
+        <div className="jxu-body">
+          <UserSidebar />
+          <main className="jxu-content">{children}</main>
+        </div>
+      </div>
+    );
+  }
+
+  if (isAuthCard) {
+    return (
+      <div className="landing-shell jx-landing">
+        <TopNav />
         <div className="jx-landing-content">{children}</div>
+      </div>
+    );
+  }
 
+  if (isLanding) {
+    return (
+      <div className="landing-shell jx-landing">
+        <TopNav />
+        <div className="jx-landing-content">{children}</div>
+        <footer className="landing-footer">
+          <div className="landing-footer-inner">
+            <p>{t.footer.landingLine1}</p>
+            <small>{t.footer.landingLine2}</small>
         <footer className="landing-footer-extended">
           <style dangerouslySetInnerHTML={{ __html: `
             .landing-footer-extended {

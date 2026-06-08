@@ -74,10 +74,18 @@ async function parseJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
+// Attach the logged-in user's token (if any) so claims/reviews are attributed
+// to their account. Guests omit it and stay anonymous (public submission).
+function storedAuthHeader(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  const token = window.localStorage.getItem("jx_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export async function submitTextClaim(text: string, language: string) {
   const response = await fetch(`${BASE}/analyze/text`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...storedAuthHeader() },
     body: JSON.stringify({ text, language }),
   });
 
@@ -91,6 +99,7 @@ async function submitFileClaim(endpoint: "image" | "pdf", file: File, language: 
 
   const response = await fetch(`${BASE}/analyze/${endpoint}`, {
     method: "POST",
+    headers: { ...storedAuthHeader() },
     body: formData,
   });
 
@@ -127,7 +136,7 @@ export async function getClaimResult(claimId: number) {
 export async function submitHumanReview(claimId: number, reason: string, notes: string, reporterName: string) {
   const response = await fetch(`${BASE}/claims/${claimId}/review-request`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...storedAuthHeader() },
     body: JSON.stringify({
       reason,
       notes,
@@ -362,4 +371,371 @@ export async function getLatestEvaluationMetrics() {
   });
 
   return parseJson<LatestEvaluationMetrics>(response);
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+export function authHeader(token: string | null): Record<string, string> {
+  if (!token) return {};
+  return { Authorization: `Bearer ${token}` };
+}
+
+export interface RegisterPayload {
+  first_name: string;
+  last_name: string;
+  username: string;
+  email: string;
+  phone: string;
+  country: string;
+  password: string;
+  password_confirmation: string;
+  profile_picture?: string;
+  gender?: string;
+  date_of_birth?: string;
+}
+
+export async function registerUser(payload: RegisterPayload) {
+  const response = await fetch(`${BASE}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return parseJson<{ message: string; user: import("./auth").AuthUser; token: string; redirect: string }>(response);
+}
+
+export async function loginUser(email: string, password: string, remember: boolean) {
+  const response = await fetch(`${BASE}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, remember }),
+  });
+  return parseJson<
+    | { user: import("./auth").AuthUser; token: string; redirect: string }
+    | { role: "admin"; email: string; token: string; redirect: string }
+  >(response);
+}
+
+export async function logoutUser(token: string | null) {
+  if (!token) return;
+  await fetch(`${BASE}/auth/logout`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeader(token) },
+  });
+}
+
+export async function getMe(token: string) {
+  const response = await fetch(`${BASE}/auth/me`, {
+    headers: authHeader(token),
+    cache: "no-store",
+  });
+  return parseJson<
+    | { user: import("./auth").AuthUser }
+    | { role: "admin"; email: string }
+  >(response);
+}
+
+// ── Activity & analytics ────────────────────────────────────────────────────
+
+export interface ActivityItem {
+  id: number;
+  type: string;
+  title: string;
+  description: string | null;
+  entity_type: string | null;
+  entity_id: number | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface ActivityStatistics {
+  totals: {
+    claims: number;
+    claims_verified: number;
+    claims_this_month: number;
+    claims_last_month: number;
+    claims_change_pct: number;
+    bookmarks: number;
+    fact_views: number;
+    review_requests: number;
+    last_login: string | null;
+  };
+  verdicts: { true: number; false: number; misleading: number; unverified: number };
+  usage_this_month: {
+    claims_submitted: number;
+    reviews_requested: number;
+    fact_views: number;
+    bookmarks_added: number;
+    profile_updates: number;
+    logins: number;
+  };
+  month_label: string;
+}
+
+export interface HistoryItem {
+  id: number;
+  claim_text: string | null;
+  input_type: string;
+  verdict: string | null;
+  confidence_score: number | null;
+  trust_label: string | null;
+  status: string;
+  language: string;
+  created_at: string | null;
+}
+
+interface Pagination {
+  current_page: number;
+  per_page: number;
+  total: number;
+  last_page: number;
+}
+
+export async function getRecentActivity(token: string, limit = 6) {
+  const response = await fetch(`${BASE}/activity/recent?limit=${limit}`, {
+    headers: authHeader(token),
+    cache: "no-store",
+  });
+  return parseJson<{ success: boolean; items: ActivityItem[] }>(response);
+}
+
+export async function getActivityFeed(
+  token: string,
+  opts: { page?: number; perPage?: number; type?: string; q?: string } = {}
+) {
+  const p = new URLSearchParams();
+  if (opts.page) p.set("page", String(opts.page));
+  if (opts.perPage) p.set("per_page", String(opts.perPage));
+  if (opts.type) p.set("type", opts.type);
+  if (opts.q) p.set("q", opts.q);
+
+  const response = await fetch(`${BASE}/activity?${p.toString()}`, {
+    headers: authHeader(token),
+    cache: "no-store",
+  });
+  return parseJson<{ success: boolean; items: ActivityItem[]; pagination: Pagination }>(response);
+}
+
+export async function getActivityStatistics(token: string) {
+  const response = await fetch(`${BASE}/activity/statistics`, {
+    headers: authHeader(token),
+    cache: "no-store",
+  });
+  return parseJson<{ success: boolean; statistics: ActivityStatistics }>(response);
+}
+
+export async function getFactCheckHistory(token: string, opts: { page?: number; perPage?: number } = {}) {
+  const p = new URLSearchParams();
+  if (opts.page) p.set("page", String(opts.page));
+  if (opts.perPage) p.set("per_page", String(opts.perPage));
+
+  const response = await fetch(`${BASE}/activity/history?${p.toString()}`, {
+    headers: authHeader(token),
+    cache: "no-store",
+  });
+  return parseJson<{ success: boolean; items: HistoryItem[]; pagination: Pagination }>(response);
+}
+
+export async function getMyClaims(
+  token: string,
+  opts: { page?: number; perPage?: number; verdict?: string; status?: string; q?: string } = {}
+) {
+  const p = new URLSearchParams();
+  if (opts.page) p.set("page", String(opts.page));
+  if (opts.perPage) p.set("per_page", String(opts.perPage));
+  if (opts.verdict) p.set("verdict", opts.verdict);
+  if (opts.status) p.set("status", opts.status);
+  if (opts.q) p.set("q", opts.q);
+
+  const response = await fetch(`${BASE}/user/claims?${p.toString()}`, {
+    headers: authHeader(token),
+    cache: "no-store",
+  });
+  return parseJson<{ success: boolean; items: HistoryItem[]; pagination: Pagination }>(response);
+}
+
+// ── Profile ─────────────────────────────────────────────────────────────────
+
+export interface ProfileUpdatePayload {
+  first_name: string;
+  last_name: string;
+  phone: string;
+  country: string;
+  gender?: string;
+  date_of_birth?: string;
+}
+
+export async function updateProfile(token: string, payload: ProfileUpdatePayload) {
+  const response = await fetch(`${BASE}/user/profile`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeader(token) },
+    body: JSON.stringify(payload),
+  });
+  return parseJson<{ message: string; user: import("./auth").AuthUser }>(response);
+}
+
+export async function changePassword(
+  token: string,
+  current_password: string,
+  password: string,
+  password_confirmation: string
+) {
+  const response = await fetch(`${BASE}/user/password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeader(token) },
+    body: JSON.stringify({ current_password, password, password_confirmation }),
+  });
+  return parseJson<{ message: string }>(response);
+}
+
+export async function setAvatar(token: string, profile_picture: string) {
+  const response = await fetch(`${BASE}/user/avatar`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeader(token) },
+    body: JSON.stringify({ profile_picture }),
+  });
+  return parseJson<{ message: string; user: import("./auth").AuthUser }>(response);
+}
+
+export async function deleteAvatar(token: string) {
+  const response = await fetch(`${BASE}/user/avatar`, {
+    method: "DELETE",
+    headers: authHeader(token),
+  });
+  return parseJson<{ message: string; user: import("./auth").AuthUser }>(response);
+}
+
+// ── Bookmarks ───────────────────────────────────────────────────────────────
+
+export interface BookmarkItem {
+  bookmark_id: number;
+  bookmarked_at: string;
+  fact_check: {
+    id: number;
+    slug: string;
+    title: string;
+    summary: string | null;
+    verdict: string | null;
+    coverage_scope: string | null;
+    language: string | null;
+    cover_image: string | null;
+    published_at: string | null;
+  } | null;
+}
+
+export async function getBookmarks(token: string, opts: { page?: number; perPage?: number } = {}) {
+  const p = new URLSearchParams();
+  if (opts.page) p.set("page", String(opts.page));
+  if (opts.perPage) p.set("per_page", String(opts.perPage));
+  const response = await fetch(`${BASE}/user/bookmarks?${p.toString()}`, {
+    headers: authHeader(token),
+    cache: "no-store",
+  });
+  return parseJson<{ success: boolean; items: BookmarkItem[]; pagination: Pagination }>(response);
+}
+
+export async function getBookmarkIds(token: string) {
+  const response = await fetch(`${BASE}/user/bookmarks/ids`, {
+    headers: authHeader(token),
+    cache: "no-store",
+  });
+  return parseJson<{ success: boolean; ids: number[] }>(response);
+}
+
+export async function addBookmark(token: string, factCheckId: number) {
+  const response = await fetch(`${BASE}/user/bookmarks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeader(token) },
+    body: JSON.stringify({ fact_check_id: factCheckId }),
+  });
+  return parseJson<{ success: boolean; bookmarked: boolean }>(response);
+}
+
+export async function removeBookmark(token: string, factCheckId: number) {
+  const response = await fetch(`${BASE}/user/bookmarks/${factCheckId}`, {
+    method: "DELETE",
+    headers: authHeader(token),
+  });
+  return parseJson<{ success: boolean; bookmarked: boolean }>(response);
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+export interface NotificationItem {
+  id: number;
+  type: string;
+  title: string;
+  message: string | null;
+  entity_type: string | null;
+  entity_id: number | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export async function getNotifications(token: string, opts: { page?: number; perPage?: number } = {}) {
+  const p = new URLSearchParams();
+  if (opts.page) p.set("page", String(opts.page));
+  if (opts.perPage) p.set("per_page", String(opts.perPage));
+  const response = await fetch(`${BASE}/user/notifications?${p.toString()}`, {
+    headers: authHeader(token),
+    cache: "no-store",
+  });
+  return parseJson<{ success: boolean; items: NotificationItem[]; pagination: Pagination }>(response);
+}
+
+export async function getUnreadCount(token: string) {
+  const response = await fetch(`${BASE}/user/notifications/unread-count`, {
+    headers: authHeader(token),
+    cache: "no-store",
+  });
+  return parseJson<{ success: boolean; unread: number }>(response);
+}
+
+export async function markNotificationRead(token: string, id: number) {
+  const response = await fetch(`${BASE}/user/notifications/${id}/read`, {
+    method: "POST",
+    headers: authHeader(token),
+  });
+  return parseJson<{ success: boolean }>(response);
+}
+
+export async function markAllNotificationsRead(token: string) {
+  const response = await fetch(`${BASE}/user/notifications/read-all`, {
+    method: "POST",
+    headers: authHeader(token),
+  });
+  return parseJson<{ success: boolean }>(response);
+}
+
+// ── Saved searches ────────────────────────────────────────────────────────────
+
+export interface SavedSearchItem {
+  id: number;
+  query: string;
+  filters: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export async function getSavedSearches(token: string) {
+  const response = await fetch(`${BASE}/user/saved-searches`, {
+    headers: authHeader(token),
+    cache: "no-store",
+  });
+  return parseJson<{ success: boolean; items: SavedSearchItem[] }>(response);
+}
+
+export async function saveSearch(token: string, query: string, filters?: Record<string, unknown>) {
+  const response = await fetch(`${BASE}/user/saved-searches`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeader(token) },
+    body: JSON.stringify({ query, filters: filters ?? null }),
+  });
+  return parseJson<{ success: boolean; item: SavedSearchItem; duplicate?: boolean }>(response);
+}
+
+export async function deleteSavedSearch(token: string, id: number) {
+  const response = await fetch(`${BASE}/user/saved-searches/${id}`, {
+    method: "DELETE",
+    headers: authHeader(token),
+  });
+  return parseJson<{ success: boolean }>(response);
 }

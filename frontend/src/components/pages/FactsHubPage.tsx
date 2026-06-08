@@ -1,5 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { getPublicFactChecks, getBookmarkIds, addBookmark, removeBookmark, saveSearch } from "@/lib/api";
+import { useLanguage } from "@/lib/i18n";
+import { useAuth } from "@/lib/auth";
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/lib/i18n";
 import { getPublicFactChecks } from "@/lib/api";
@@ -36,6 +41,45 @@ function HalfCircleGauge({ pct, color }: { pct: number; color: string }) {
 }
 
 export function FactsHubPage() {
+  const { language, tx } = useLanguage();
+  const { token, isAuthenticated } = useAuth();
+  const params = useSearchParams();
+
+  const initialScope: Scope = params.get("scope") === "international" ? "international" : "bangladesh";
+  const [scope, setScope] = useState<Scope>(initialScope);
+  const [query, setQuery] = useState(params.get("q") ?? "");
+  const [items, setItems] = useState<PublicFactCheckListItem[]>([]);
+  const [usingFallback, setUsingFallback] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Bookmark state (real fact-checks only)
+  const [bookmarkIds, setBookmarkIds] = useState<Set<number>>(new Set());
+  const [savedSearchMsg, setSavedSearchMsg] = useState("");
+
+  useEffect(() => {
+    if (!token) { setBookmarkIds(new Set()); return; }
+    getBookmarkIds(token).then((r) => setBookmarkIds(new Set(r.ids))).catch(() => {});
+  }, [token]);
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+
+    getPublicFactChecks({ scope, q: query.trim() || undefined, perPage: 24 })
+      .then((res) => {
+        if (!mounted) return;
+        const apiItems = res.items || [];
+        setUsingFallback(apiItems.length === 0);
+        setItems(apiItems.length ? apiItems : fallbackItemsFor(scope, query));
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setUsingFallback(true);
+        setItems(fallbackItemsFor(scope, query));
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setLoading(false);
   const { tx } = useLanguage();
 
   const [items, setItems] = useState<PublicFactCheckListItem[]>([]);
@@ -115,6 +159,31 @@ export function FactsHubPage() {
     if (currentPage < totalPages - 2) pageNumbers.push("...");
     pageNumbers.push(totalPages);
   }
+
+  const toggleBookmark = async (id: number) => {
+    if (!token) return;
+    const next = new Set(bookmarkIds);
+    if (next.has(id)) {
+      next.delete(id);
+      setBookmarkIds(next);
+      removeBookmark(token, id).catch(() => {});
+    } else {
+      next.add(id);
+      setBookmarkIds(next);
+      addBookmark(token, id).catch(() => {});
+    }
+  };
+
+  const onSaveSearch = async () => {
+    if (!token || !query.trim()) return;
+    try {
+      await saveSearch(token, query.trim(), { scope });
+      setSavedSearchMsg(tx({ en: "Search saved", bn: "অনুসন্ধান সংরক্ষিত" }));
+      setTimeout(() => setSavedSearchMsg(""), 2500);
+    } catch {
+      /* ignore */
+    }
+  };
 
   return (
     <main className="jx-hub" style={{ background: '#f8fafc', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
@@ -542,6 +611,19 @@ export function FactsHubPage() {
               {tx({ en: "Apply Filters", bn: "ফিল্টার প্রয়োগ" })}
             </button>
           </div>
+          <div className="facts-search-wrap">
+            <input
+              className="search-input"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={tx({ en: "Search fact checks", bn: "ফ্যাক্ট চেক খুঁজুন" })}
+            />
+            {isAuthenticated && query.trim() && (
+              <button type="button" className="facts-save-search" onClick={onSaveSearch} title={tx({ en: "Save this search", bn: "এই অনুসন্ধান সংরক্ষণ করুন" })}>
+                {savedSearchMsg || tx({ en: "★ Save search", bn: "★ অনুসন্ধান সংরক্ষণ" })}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* STATS */}
@@ -593,6 +675,31 @@ export function FactsHubPage() {
             }
           </p>
         )}
+        {!loading && items.length === 0 && <p className="muted">{tx({ en: "No published fact checks found.", bn: "কোনো প্রকাশিত ফ্যাক্ট চেক পাওয়া যায়নি।" })}</p>}
+
+        <div className="fact-grid">
+          {items.map((item) => (
+            <article key={item.id} className="fact-card">
+              <div className="fact-meta-row">
+                <span className={`verdict-chip ${verdictClass(item.verdict)}`}>{language === "bn" && !item.verdict ? "অযাচাইকৃত" : verdictLabel(item.verdict)}</span>
+                <span className="scope-chip">{item.coverage_scope === "bangladesh" ? tx({ en: "Bangladesh", bn: "বাংলাদেশ" }) : tx({ en: "International", bn: "আন্তর্জাতিক" })}</span>
+                {isAuthenticated && !usingFallback && (
+                  <button
+                    type="button"
+                    className={`fact-bookmark ${bookmarkIds.has(item.id) ? "active" : ""}`}
+                    onClick={() => toggleBookmark(item.id)}
+                    title={bookmarkIds.has(item.id) ? tx({ en: "Remove bookmark", bn: "বুকমার্ক সরান" }) : tx({ en: "Bookmark", bn: "বুকমার্ক" })}
+                    aria-pressed={bookmarkIds.has(item.id)}
+                  >
+                    {bookmarkIds.has(item.id) ? "🔖" : "🏷️"}
+                  </button>
+                )}
+              </div>
+              <h3>{item.title}</h3>
+              <p>{item.summary || tx({ en: "No summary provided.", bn: "কোনো সারসংক্ষেপ দেওয়া হয়নি।" })}</p>
+              <div className="fact-footer-row">
+                <small>{item.source_name || (item.origin === "external" ? tx({ en: "External", bn: "বাহ্যিক" }) : tx({ en: "JachaiX Internal", bn: "জাচাইএক্স অভ্যন্তরীণ" }))}</small>
+                <a href={`/facts/${item.slug}`}>{tx({ en: "Read full fact-check", bn: "সম্পূর্ণ ফ্যাক্ট-চেক পড়ুন" })}</a>
 
         {/* FACT CARDS GRID */}
         {loading ? (
