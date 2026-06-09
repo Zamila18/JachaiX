@@ -89,9 +89,9 @@ export function UserSidebar() {
   const { t } = useLanguage();
   const { user } = useAuth();
 
-  const initials = user?.name
-    ? user.name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()
-    : user?.email?.slice(0, 2).toUpperCase() ?? "U";
+  const initials = user?.first_name && user?.last_name
+    ? (user.first_name[0] + user.last_name[0]).toUpperCase()
+    : user?.username?.slice(0, 2).toUpperCase() ?? user?.email?.slice(0, 2).toUpperCase() ?? "U";
 
   const lang = (t as any)?.lang ?? "en";
 
@@ -155,7 +155,7 @@ export function UserSidebar() {
           </div>
           <div style={{ overflow: "hidden" }}>
             <div style={{ color: "#fff", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {user?.name ?? user?.email ?? "User"}
+              {[user?.first_name, user?.last_name].filter(Boolean).join(" ") || user?.username || user?.email || "User"}
             </div>
             <div style={{ color: "#22c55e", fontSize: 10 }}>Member</div>
           </div>
