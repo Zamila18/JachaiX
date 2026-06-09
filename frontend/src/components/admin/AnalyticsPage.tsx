@@ -78,7 +78,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 // Fetch ALL pages from the API
 async function fetchAllClaims(token: string | null): Promise<any[]> {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
   const first = await fetch(`${BASE}/admin/fact-checks/completed-claims?per_page=100&page=1`, {
     headers, cache: "no-store",
   });
