@@ -27,9 +27,12 @@ function AppShellContent({ children }: { children: ReactNode }) {
   // Authenticated user area: top nav + user sidebar + light content.
   const isUserArea = pathname?.startsWith("/user");
 
+  // Admin panel — render children bare (AdminShell handles its own layout).
+  const isAdminPanel = pathname?.startsWith("/admin");
+
   // Centered auth cards / minimal admin: top nav + content (no footer/sidebar).
   const isAuthCard =
-    pathname === "/login" || pathname === "/register" || pathname === "/admin/dashboard";
+    pathname === "/login" || pathname === "/register";
 
   // Public landing-style pages (incl. teammate's /contact): top nav + content + footer.
   const isLanding =
@@ -37,8 +40,14 @@ function AppShellContent({ children }: { children: ReactNode }) {
     pathname === "/contact" ||
     pathname === "/scan" ||
     pathname === "/facts" ||
+    pathname === "/how-it-works" ||
+    pathname === "/docs" ||
     pathname?.startsWith("/facts/") ||
     pathname?.startsWith("/results/");
+
+  if (isAdminPanel) {
+    return <>{children}</>;
+  }
 
   if (isUserArea) {
     return (

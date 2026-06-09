@@ -348,31 +348,38 @@ export function FactsHubPage() {
         .jx-hub-stats {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
-          gap: 1.5rem;
+          gap: 0;
           margin: 2rem 0;
+          background: #fff;
+          border-radius: 14px;
+          overflow: hidden;
+          box-shadow: 0 2px 12px rgba(15,23,42,0.07);
         }
         .jx-stat-card {
-          background: #fff;
-          border: 1px solid #e2e8f0;
-          border-radius: 12px;
-          padding: 1.5rem;
           display: flex;
+          flex-direction: row;
           align-items: center;
-          gap: 1rem;
+          gap: 0.85rem;
+          padding: 1.4rem 1.5rem;
+          border-right: 1px solid #f1f5f9;
+          background: #fff;
         }
+        .jx-stat-card:last-child { border-right: none; }
         .jx-stat-icon {
-          width: 48px;
-          height: 48px;
+          width: 46px;
+          height: 46px;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-shrink: 0;
         }
-        .jx-stat-icon.green { background: #f0fdf4; color: #16a34a; }
-        .jx-stat-icon.red { background: #fef2f2; color: #ef4444; }
-        .jx-stat-icon.orange { background: #fff7ed; color: #f97316; }
-        .jx-stat-info h4 { font-size: 1.5rem; margin: 0 0 0.2rem; color: #0f172a; }
-        .jx-stat-info p { font-size: 0.85rem; color: #64748b; margin: 0; line-height: 1.2; }
+        .jx-stat-icon.green { background: #e8f5ee; border: 1px solid #c8e8d4; color: #16a34a; }
+        .jx-stat-icon.red { background: #fef2f2; border: 1px solid #fecaca; color: #ef4444; }
+        .jx-stat-icon.orange { background: #fff7ed; border: 1px solid #fed7aa; color: #f97316; }
+        .jx-stat-info { line-height: 1.2; }
+        .jx-stat-info h4 { font-size: 1.5rem; font-weight: 800; margin: 0 0 0.2rem; color: #0f172a; }
+        .jx-stat-info p { font-size: 0.88rem; color: #64748b; margin: 0; }
 
 
         .jx-hub-grid {
@@ -394,6 +401,8 @@ export function FactsHubPage() {
           flex-direction: column;
           text-decoration: none;
           transition: transform 0.2s, box-shadow 0.2s;
+          overflow: hidden;
+          min-width: 0;
         }
         .jx-hub-card:hover {
           transform: translateY(-4px);
@@ -422,6 +431,11 @@ export function FactsHubPage() {
           color: #0f172a;
           margin: 0 0 0.8rem;
           line-height: 1.4;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
         .jx-hub-card-summary {
           font-size: 0.9rem;
@@ -429,6 +443,11 @@ export function FactsHubPage() {
           line-height: 1.5;
           flex-grow: 1;
           margin: 0 0 1.5rem;
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          line-clamp: 3;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
         .jx-hub-card-meta {
           display: grid;
@@ -514,37 +533,8 @@ export function FactsHubPage() {
             <h1>{tx({ en: "Fact Checks", bn: "ফ্যাক্ট চেকস" })}</h1>
             <p>{tx({ en: "Browse verified fact-check reports, evidence-backed investigations, and misinformation analysis from Bangladesh and around the world.", bn: "বাংলাদেশ এবং বিশ্বজুড়ে যাচাইকৃত ফ্যাক্ট-চেক রিপোর্ট, প্রমাণ-সমর্থিত তদন্ত এবং ভুল তথ্যের বিশ্লেষণ ব্রাউজ করুন।" })}</p>
           </div>
-          {/* Shield with checkmark — matches the image */}
-          <div className="jx-hero-graphic">
-            <svg viewBox="0 0 220 220" fill="none" xmlns="http://www.w3.org/2000/svg">
-              {/* Outer glow */}
-              <ellipse cx="110" cy="115" rx="90" ry="88" fill="rgba(22,163,74,0.08)" />
-              {/* Shield body */}
-              <path
-                d="M110 18 L188 52 L188 118 C188 158 110 196 110 196 C110 196 32 158 32 118 L32 52 Z"
-                fill="rgba(22,163,74,0.15)"
-                stroke="#16a34a"
-                strokeWidth="3.5"
-                strokeLinejoin="round"
-              />
-              {/* Inner shield highlight */}
-              <path
-                d="M110 38 L172 66 L172 116 C172 146 110 176 110 176 C110 176 48 146 48 116 L48 66 Z"
-                fill="rgba(22,163,74,0.08)"
-                stroke="rgba(22,163,74,0.3)"
-                strokeWidth="1.5"
-                strokeLinejoin="round"
-              />
-              {/* Checkmark */}
-              <path
-                d="M76 110 L100 136 L148 88"
-                stroke="#16a34a"
-                strokeWidth="10"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/shield.png" alt="JachaiX Shield" style={{ position: "absolute", right: "2%", top: "50%", transform: "translateY(-50%)", width: 320, height: 320, objectFit: "contain", filter: "drop-shadow(0 0 32px rgba(22,163,74,0.3))", pointerEvents: "none" }} />
         </div>
       </section>
 
@@ -611,43 +601,21 @@ export function FactsHubPage() {
         </div>
 
         {/* STATS */}
-        <div className="jx-hub-stats">
-          <div className="jx-stat-card">
-            <div className="jx-stat-icon green">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", margin: "2rem 0", background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 12px rgba(15,23,42,0.07)" }}>
+          {[
+            { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>, iconBg: "#e8f5ee", iconBd: "#c8e8d4", val: loading ? "—" : total, label: tx({ en: "Published Fact Checks", bn: "প্রকাশিত ফ্যাক্ট চেক" }) },
+            { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>, iconBg: "#fef2f2", iconBd: "#fecaca", val: loading ? "—" : items.filter(i => i.verdict === "false").length, label: tx({ en: "False Claims", bn: "মিথ্যা দাবি" }) },
+            { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>, iconBg: "#fff7ed", iconBd: "#fed7aa", val: loading ? "—" : items.filter(i => i.verdict === "misleading").length, label: tx({ en: "Misleading Claims", bn: "বিভ্রান্তিকর দাবি" }) },
+            { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>, iconBg: "#e8f5ee", iconBd: "#c8e8d4", val: loading ? "—" : items.filter(i => i.verdict === "true").length, label: tx({ en: "True Claims", bn: "সত্য দাবি" }) },
+          ].map((s, i) => (
+            <div key={i} style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.85rem", padding: "1.4rem 1.5rem", borderRight: i < 3 ? "1px solid #f1f5f9" : "none", background: "#fff" }}>
+              <span style={{ width: 46, height: 46, borderRadius: "50%", background: s.iconBg, border: `1px solid ${s.iconBd}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{s.icon}</span>
+              <div style={{ lineHeight: 1.2 }}>
+                <strong style={{ display: "block", fontSize: "1.5rem", fontWeight: 800, color: "#0f172a" }}>{s.val}</strong>
+                <span style={{ fontSize: "0.88rem", color: "#64748b" }}>{s.label}</span>
+              </div>
             </div>
-            <div className="jx-stat-info">
-              <h4>{loading ? "—" : total}</h4>
-              <p>{tx({ en: "Published Fact Checks", bn: "প্রকাশিত ফ্যাক্ট চেক" })}</p>
-            </div>
-          </div>
-          <div className="jx-stat-card">
-            <div className="jx-stat-icon red">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-            </div>
-            <div className="jx-stat-info">
-              <h4>{loading ? "—" : items.filter(i => i.verdict === "false").length}</h4>
-              <p>{tx({ en: "False Claims", bn: "মিথ্যা দাবি" })}</p>
-            </div>
-          </div>
-          <div className="jx-stat-card">
-            <div className="jx-stat-icon orange">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            </div>
-            <div className="jx-stat-info">
-              <h4>{loading ? "—" : items.filter(i => i.verdict === "misleading").length}</h4>
-              <p>{tx({ en: "Misleading Claims", bn: "বিভ্রান্তিকর দাবি" })}</p>
-            </div>
-          </div>
-          <div className="jx-stat-card">
-            <div className="jx-stat-icon green">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            </div>
-            <div className="jx-stat-info">
-              <h4>{loading ? "—" : items.filter(i => i.verdict === "true").length}</h4>
-              <p>{tx({ en: "True Claims", bn: "সত্য দাবি" })}</p>
-            </div>
-          </div>
+          ))}
         </div>
 
         {/* RESULT COUNT */}

@@ -75,6 +75,15 @@ export interface ClaimResult {
   cross_verification?: CrossVerification;
   human_verification?: HumanVerification;
   created_at?: string | null;
+  is_published?: boolean;
+  fact_check?: null | {
+    id: number;
+    title: string;
+    slug: string;
+    summary: string | null;
+    status: "draft" | "review" | "published";
+    published_at: string | null;
+  };
 }
 
 export interface PublicFactCheckListItem {

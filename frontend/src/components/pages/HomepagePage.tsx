@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getFeaturedFactChecks, getPublicFactChecks } from "@/lib/api";
+import { getFeaturedFactChecks, getPublicFactChecks, getAdminCompletedClaims } from "@/lib/api";
 import { useLanguage } from "@/lib/i18n";
 import type { PublicFactCheckListItem } from "@/lib/types";
 
@@ -127,6 +127,11 @@ function ConfidenceGauge({ score, tone }: { score: number | null; tone: string }
   );
 }
 
+function fmtCount(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(0)}K+`;
+  return `${n}+`;
+}
+
 export function HomepagePage() {
   const { language, tx } = useLanguage();
   const router = useRouter();
@@ -135,23 +140,49 @@ export function HomepagePage() {
   const [items, setItems] = useState<PublicFactCheckListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
+  const [verifiedCount, setVerifiedCount] = useState<string>("8,000+");
+  const [claimsCount, setClaimsCount] = useState<string>("25,000+");
 
+  // Fetch real stats
+  useEffect(() => {
+    getPublicFactChecks({ perPage: 1 })
+      .then((res) => {
+        const total = res.pagination?.total;
+        if (total && total > 0) setVerifiedCount(fmtCount(total));
+      })
+      .catch(() => {});
+
+    getAdminCompletedClaims({ perPage: 1 })
+      .then((res) => {
+        const total = res.pagination?.total;
+        if (total && total > 0) setClaimsCount(fmtCount(total));
+      })
+      .catch(() => {});
+  }, []);
+
+  // Fetch featured, then latest as fallback
   useEffect(() => {
     let mounted = true;
     getFeaturedFactChecks()
       .then((res) => {
         if (!mounted) return;
         const apiItems = res.items || [];
-        setFeatured(apiItems.length ? apiItems : FALLBACK_FACT_CHECKS);
+        if (apiItems.length) {
+          setFeatured(apiItems);
+        } else {
+          // No featured — use latest published fact checks
+          return getPublicFactChecks({ perPage: 4 }).then((r) => {
+            if (!mounted) return;
+            setFeatured(r.items?.length ? r.items : FALLBACK_FACT_CHECKS);
+          });
+        }
       })
       .catch(() => {
         if (!mounted) return;
         setFeatured(FALLBACK_FACT_CHECKS);
       });
 
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
   useEffect(() => {
@@ -172,9 +203,7 @@ export function HomepagePage() {
         setLoading(false);
       });
 
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [scope]);
 
   // Featured cards drive the "Latest Fact Checks" showcase strip; fall back to
@@ -199,7 +228,7 @@ export function HomepagePage() {
 
   const stats = [
     {
-      value: "25,000+",
+      value: claimsCount,
       label: tx({ en: "Claims Analyzed", bn: "ক্লেম বিশ্লেষিত" }),
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
@@ -209,7 +238,7 @@ export function HomepagePage() {
       ),
     },
     {
-      value: "8,000+",
+      value: verifiedCount,
       label: tx({ en: "Verified Reports", bn: "যাচাইকৃত রিপোর্ট" }),
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
@@ -245,12 +274,36 @@ export function HomepagePage() {
   ];
 
   const steps = [
-    { title: tx({ en: "Claim Submitted", bn: "ক্লেম জমা" }), desc: tx({ en: "User submits a claim or provides a link.", bn: "ব্যবহারকারী ক্লেম জমা দেন বা লিংক দেন।" }) },
-    { title: tx({ en: "Evidence Retrieval", bn: "এভিডেন্স রিট্রিভাল" }), desc: tx({ en: "Our system searches multiple trusted sources.", bn: "আমাদের সিস্টেম একাধিক বিশ্বস্ত সূত্র খোঁজে।" }) },
-    { title: tx({ en: "Source Verification", bn: "সূত্র যাচাই" }), desc: tx({ en: "Sources are verified for authenticity and credibility.", bn: "সূত্রের সত্যতা ও বিশ্বাসযোগ্যতা যাচাই করা হয়।" }) },
-    { title: tx({ en: "AI Analysis", bn: "এআই বিশ্লেষণ" }), desc: tx({ en: "AI analyzes evidence and compares context.", bn: "এআই এভিডেন্স বিশ্লেষণ ও প্রসঙ্গ তুলনা করে।" }) },
-    { title: tx({ en: "Human Review", bn: "মানব রিভিউ" }), desc: tx({ en: "Experts review AI findings for accuracy.", bn: "বিশেষজ্ঞরা এআই ফলাফল যাচাই করেন।" }) },
-    { title: tx({ en: "Final Verdict", bn: "চূড়ান্ত রায়" }), desc: tx({ en: "Final verdict with evidence and transparency.", bn: "এভিডেন্স ও স্বচ্ছতাসহ চূড়ান্ত রায়।" }) },
+    {
+      title: tx({ en: "Claim Submitted", bn: "ক্লেম জমা" }),
+      desc: tx({ en: "User submits a claim or provides a link.", bn: "ব্যবহারকারী ক্লেম জমা দেন বা লিংক দেন।" }),
+      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>,
+    },
+    {
+      title: tx({ en: "Evidence Retrieval", bn: "এভিডেন্স রিট্রিভাল" }),
+      desc: tx({ en: "Our system searches multiple trusted sources.", bn: "আমাদের সিস্টেম একাধিক বিশ্বস্ত সূত্র খোঁজে।" }),
+      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+    },
+    {
+      title: tx({ en: "Source Verification", bn: "সূত্র যাচাই" }),
+      desc: tx({ en: "Sources are verified for authenticity and credibility.", bn: "সূত্রের সত্যতা ও বিশ্বাসযোগ্যতা যাচাই করা হয়।" }),
+      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>,
+    },
+    {
+      title: tx({ en: "AI Analysis", bn: "এআই বিশ্লেষণ" }),
+      desc: tx({ en: "AI analyzes evidence and compares context.", bn: "এআই এভিডেন্স বিশ্লেষণ ও প্রসঙ্গ তুলনা করে।" }),
+      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-1.14z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-1.14z"/></svg>,
+    },
+    {
+      title: tx({ en: "Human Review", bn: "মানব রিভিউ" }),
+      desc: tx({ en: "Experts review AI findings for accuracy.", bn: "বিশেষজ্ঞরা এআই ফলাফল যাচাই করেন।" }),
+      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+    },
+    {
+      title: tx({ en: "Final Verdict", bn: "চূড়ান্ত রায়" }),
+      desc: tx({ en: "Final verdict with evidence and transparency.", bn: "এভিডেন্স ও স্বচ্ছতাসহ চূড়ান্ত রায়।" }),
+      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>,
+    },
   ];
 
   return (
@@ -323,8 +376,7 @@ export function HomepagePage() {
         <section className="jx-latest">
           <div className="jx-latest-head">
             <h2>
-              <span className="jx-latest-mark" aria-hidden>📋</span>
-              {tx({ en: "Latest Fact Checks", bn: "সর্বশেষ ফ্যাক্ট চেকস" })}
+{tx({ en: "Latest Fact Checks", bn: "সর্বশেষ ফ্যাক্ট চেকস" })}
             </h2>
             <a href="/facts" className="jx-viewall">
               {tx({ en: "View all", bn: "সব দেখুন" })} <span aria-hidden>→</span>
@@ -358,7 +410,7 @@ export function HomepagePage() {
                     <div className="jx-fact-foot">
                       <div className="jx-fact-meta">
                         <span className="jx-meta-item">📅 {formatDate(item.published_at) || tx({ en: "Recent", bn: "সাম্প্রতিক" })}</span>
-                        <span className="jx-meta-item">📄 {item.tags?.length ? item.tags.length : 9} {tx({ en: "Sources", bn: "সূত্র" })}</span>
+                        <span className="jx-meta-item">📄 2 {tx({ en: "Sources", bn: "সূত্র" })}</span>
                       </div>
                       <div className="jx-conf">
                         <ConfidenceGauge score={item.confidence_score} tone={tone} />
@@ -377,8 +429,7 @@ export function HomepagePage() {
         <div className="jx-how-inner">
           <div className="jx-how-intro">
             <h2>
-              <span className="jx-how-mark" aria-hidden>⚙️</span>
-              {tx({ en: "How Verification Works", bn: "যাচাই যেভাবে কাজ করে" })}
+{tx({ en: "How Verification Works", bn: "যাচাই যেভাবে কাজ করে" })}
             </h2>
             <p>
               {tx({
@@ -390,7 +441,7 @@ export function HomepagePage() {
           <ol className="jx-steps">
             {steps.map((step, idx) => (
               <li key={step.title} className="jx-step">
-                <span className={`jx-step-icon${idx === steps.length - 1 ? " is-final" : ""}`} aria-hidden />
+                <span className={`jx-step-icon${idx === steps.length - 1 ? " is-final" : ""}`} aria-hidden style={{ display: "flex", alignItems: "center", justifyContent: "center", color: idx === steps.length - 1 ? "#fff" : "#1e3a5f" }}>{step.icon}</span>
                 <div className="jx-step-text">
                   <strong>
                     <span className="jx-step-num">{idx + 1}</span> {step.title}
