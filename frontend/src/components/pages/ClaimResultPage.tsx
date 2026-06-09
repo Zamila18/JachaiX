@@ -424,6 +424,48 @@ export function ClaimResultPage({ claimId }: Props) {
         </div>
       </div>
 
+      {/* Human review result — shown when admin has reviewed and published */}
+      {result.fact_check && (
+        <div className="cr-panel" style={{ borderLeft: "4px solid #22c55e", background: "#f0fdf4" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="22" height="22" aria-hidden>
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>
+            </svg>
+            <p className="cr-section-title" style={{ margin: 0, color: "#16a34a" }}>
+              {tx({ en: "HUMAN REVIEW COMPLETED", bn: "মানব পর্যালোচনা সম্পন্ন" })}
+            </p>
+          </div>
+
+          {result.fact_check.summary && (
+            <div style={{ background: "#fff", borderRadius: 8, padding: "12px 16px", marginBottom: 12, border: "1px solid #bbf7d0" }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 6, letterSpacing: "0.05em" }}>
+                {tx({ en: "REVIEWER NOTES", bn: "পর্যালোচকের নোট" })}
+              </p>
+              <p style={{ color: "#0f172a", lineHeight: 1.7, margin: 0 }}>{result.fact_check.summary}</p>
+            </div>
+          )}
+
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#dcfce7", color: "#16a34a", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
+              <svg viewBox="0 0 12 12" fill="#16a34a" width="8" height="8" aria-hidden><circle cx="6" cy="6" r="5"/></svg>
+              {tx({ en: "Published", bn: "প্রকাশিত" })}
+            </span>
+            {result.fact_check.published_at && (
+              <span style={{ fontSize: 12, color: "#64748b" }}>
+                {tx({ en: "Reviewed on", bn: "পর্যালোচনা করা হয়েছে" })}: {formatDate(result.fact_check.published_at)}
+              </span>
+            )}
+            <Link
+              href={`/facts/${result.fact_check.slug}`}
+              style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, color: "#16a34a", fontWeight: 600, fontSize: 13, textDecoration: "none" }}
+            >
+              {tx({ en: "View Public Fact Check", bn: "পাবলিক ফ্যাক্ট চেক দেখুন" })}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" width="14" height="14" aria-hidden><path d="M7 17L17 7M7 7h10v10"/></svg>
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Footer action bar */}
       <div className="cr-footer-bar">
         <button type="button" className="cr-share-btn" onClick={() => navigator.clipboard?.writeText(window.location.href)}>

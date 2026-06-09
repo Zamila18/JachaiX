@@ -6,7 +6,10 @@ import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
-import { getUnreadCount } from "@/lib/api";
+import { getNotifications } from "@/lib/api";
+import { useClaimWatcher } from "@/lib/claimWatcher";
+
+const EXCLUDED_TYPES = new Set(["VERDICT_READY", "verdict_ready"]);
 
 export function TopNav() {
   const pathname = usePathname();
@@ -15,8 +18,11 @@ export function TopNav() {
   const { isAuthenticated, isAdmin, user, adminEmail, token, logout } = useAuth();
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [unread, setUnread] = useState(0);
+  const [backendUnread, setBackendUnread] = useState(0);
   const menuRef = useRef<HTMLDivElement | null>(null);
+
+  const { localUnreadCount } = useClaimWatcher(token, !!isAdmin);
+  const unread = backendUnread + localUnreadCount;
 
   // Close dropdown on outside click.
   useEffect(() => {
@@ -29,11 +35,20 @@ export function TopNav() {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  // Poll unread notification count for the bell.
+  // Poll unread notification count — exclude VERDICT_READY, count only relevant types.
   useEffect(() => {
     if (!token || isAdmin) return;
     let active = true;
-    const load = () => getUnreadCount(token).then((r) => active && setUnread(r.unread)).catch(() => {});
+    const load = () =>
+      getNotifications(token, { page: 1, perPage: 50 })
+        .then((r) => {
+          if (!active) return;
+          const count = r.items.filter(
+            (n) => !n.is_read && !EXCLUDED_TYPES.has(n.type) && !EXCLUDED_TYPES.has(n.type.toUpperCase())
+          ).length;
+          setBackendUnread(count);
+        })
+        .catch(() => {});
     load();
     const id = setInterval(load, 30000);
     return () => {
@@ -62,9 +77,9 @@ export function TopNav() {
           <Link href="/" className={pathname === "/" ? "active" : ""}>{tx({ en: "Home", bn: "হোম" })}</Link>
           <Link href="/facts" className={pathname === "/facts" ? "active" : ""}>{tx({ en: "Fact Checks", bn: "ফ্যাক্ট চেকস" })}</Link>
           <Link href="/scan" className={pathname === "/scan" ? "active" : ""}>{tx({ en: "Verify Claim", bn: "যাচাই করুন" })}</Link>
-          <a href="#how">{tx({ en: "How It Works", bn: "যেভাবে কাজ করে" })}</a>
-          <Link href="/dashboard" className={pathname === "/dashboard" ? "active" : ""}>{tx({ en: "About", bn: "সম্পর্কে" })}</Link>
+          <Link href="/how-it-works" className={pathname === "/how-it-works" ? "active" : ""}>{tx({ en: "About", bn: "সম্পর্কে" })}</Link>
           <Link href="/contact" className={pathname === "/contact" ? "active" : ""}>{tx({ en: "Contact Us", bn: "যোগাযোগ" })}</Link>
+          <Link href="/docs" className={pathname === "/docs" ? "active" : ""}>{tx({ en: "Documentation", bn: "ডকুমেন্টেশন" })}</Link>
         </nav>
 
         <div className="jx-nav-actions">

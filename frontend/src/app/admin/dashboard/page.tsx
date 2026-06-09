@@ -1,5 +1,1 @@
-import { AdminDashboardPage } from "@/components/pages/AdminDashboardPage";
-
-export default function Page() {
-  return <AdminDashboardPage />;
-}
+export { default } from "@/components/admin/DashboardPage";

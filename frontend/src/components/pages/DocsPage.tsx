@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getPublicDocs } from "@/lib/api";
+import { getPublicDocs, getPublicFactChecks, getAdminCompletedClaims } from "@/lib/api";
 import { useLanguage } from "@/lib/i18n";
 import type { DocsLiveData, DocsPageData, DocsPitchSection, DocsVisibility } from "@/lib/types";
 
@@ -274,6 +274,17 @@ export function DocsPageView() {
   const [copied, setCopied] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string>("");
   const [copyStates, setCopyStates] = useState<Record<string, string>>({});
+  const [liveFactChecks, setLiveFactChecks] = useState<number | null>(null);
+  const [liveClaims, setLiveClaims] = useState<number | null>(null);
+
+  useEffect(() => {
+    getPublicFactChecks({ perPage: 1 })
+      .then(r => { const t = r.pagination?.total; if (t && t > 0) setLiveFactChecks(t); })
+      .catch(() => {});
+    getAdminCompletedClaims({ perPage: 1 })
+      .then(r => { const t = r.pagination?.total; if (t && t > 0) setLiveClaims(t); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -286,7 +297,7 @@ export function DocsPageView() {
           if (!mounted) return;
 
           if (res.success === false) {
-            setBlocked(res.message || tx({ en: "Documentation is not available right now.", bn: "ডকুমেন্টেশন এখন উপলভ্য নয়।" }));
+            setBlocked(res.message || tx({ en: "Documentation is not available right now.", bn: "ডকুমেন্টেশন এখন উপলভ্য নয়।" }));
             setVisibility(res.visibility);
             setPage(buildFallbackDocsPageData());
             setLiveData(buildFallbackLiveData());
@@ -304,10 +315,10 @@ export function DocsPageView() {
 
           setBlocked(
             isTransientNetworkError(error)
-              ? tx({ en: "Documentation is temporarily unavailable. Please refresh and try again.", bn: "ডকুমেন্টেশন সাময়িকভাবে অনুপলব্ধ। রিফ্রেশ করে আবার চেষ্টা করুন।" })
+              ? tx({ en: "Documentation is temporarily unavailable. Please refresh and try again.", bn: "ডকুমেন্টেশন সাময়িকভাবে অনুপলব্ধ। রিফ্রেশ করে আবার চেষ্টা করুন।" })
               : error instanceof Error
                 ? error.message
-                : tx({ en: "Failed to load docs.", bn: "ডকস লোড করা যায়নি।" })
+                : tx({ en: "Failed to load docs.", bn: "ডকস লোড করা যায়নি।" })
           );
           setPage(buildFallbackDocsPageData());
           setLiveData(buildFallbackLiveData());
@@ -384,10 +395,10 @@ export function DocsPageView() {
   async function copyShareLink() {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      setCopied(tx({ en: "Link copied!", bn: "লিংক কপি হয়েছে!" }));
+      setCopied(tx({ en: "Link copied!", bn: "লিংক কপি হয়েছে!" }));
       setTimeout(() => setCopied(null), 2500);
     } catch {
-      setCopied(tx({ en: "Could not copy link.", bn: "লিংক কপি করা যায়নি।" }));
+      setCopied(tx({ en: "Could not copy link.", bn: "লিংক কপি করা যায়নি।" }));
       setTimeout(() => setCopied(null), 2500);
     }
   }
@@ -395,7 +406,7 @@ export function DocsPageView() {
   async function copyToClipboard(key: string, textToCopy: string) {
     try {
       await navigator.clipboard.writeText(textToCopy);
-      setCopyStates((prev) => ({ ...prev, [key]: tx({ en: "Copied!", bn: "কপি হয়েছে!" }) }));
+      setCopyStates((prev) => ({ ...prev, [key]: tx({ en: "Copied!", bn: "কপি হয়েছে!" }) }));
       setTimeout(() => {
         setCopyStates((prev) => ({ ...prev, [key]: "" }));
       }, 2000);
@@ -407,425 +418,365 @@ export function DocsPageView() {
     }
   }
 
+  // ── shared inline style tokens matching homepage ──────────────────────────
+  const S = {
+    white:   "#ffffff",
+    light:   "#f1f5f9",
+    border:  "#e8eef5",
+    dark:    "#0f172a",
+    mid:     "#475569",
+    muted:   "#64748b",
+    green:   "#16a34a",
+    greenBg: "#e8f5ee",
+    greenBd: "#c8e8d4",
+    card: {
+      background: "#ffffff",
+      border: "1px solid #e8eef5",
+      borderRadius: 14,
+      boxShadow: "0 4px 18px rgba(15,23,42,0.06)",
+    } as React.CSSProperties,
+  };
+
+  // ── skeleton loading ──────────────────────────────────────────────────────
   if (loading) {
     return (
-      <main className="page-shell">
-        <section className="hero-card reveal docs-hero">
-          <div className="skeleton-box" style={{ width: "120px", height: "16px", marginBottom: "0.8rem" }} />
-          <div className="skeleton-box" style={{ width: "60%", height: "32px", marginBottom: "1rem" }} />
-          <div className="skeleton-box" style={{ width: "90%", height: "20px" }} />
-        </section>
-
-        <div className="docs-split-container">
-          <div className="docs-sidebar-nav">
-            <div className="skeleton-box" style={{ height: "14px", width: "80px", marginBottom: "1rem" }} />
-            <div className="skeleton-box" style={{ height: "32px", marginBottom: "0.5rem" }} />
-            <div className="skeleton-box" style={{ height: "32px", marginBottom: "0.5rem" }} />
-            <div className="skeleton-box" style={{ height: "32px", marginBottom: "0.5rem" }} />
-            <div className="skeleton-box" style={{ height: "32px", marginBottom: "0.5rem" }} />
+      <main style={{ background: S.light, minHeight: "100vh" }}>
+        <div style={{ background: "#0a1628", padding: "3rem 0 2.5rem" }}>
+          <div style={{ width: "min(1200px,94vw)", margin: "0 auto" }}>
+            <div style={{ width: 120, height: 12, background: "rgba(255,255,255,.12)", borderRadius: 6, marginBottom: 16 }} />
+            <div style={{ width: "55%", height: 36, background: "rgba(255,255,255,.1)", borderRadius: 8, marginBottom: 14 }} />
+            <div style={{ width: "80%", height: 16, background: "rgba(255,255,255,.07)", borderRadius: 6 }} />
           </div>
-          <div style={{ display: "grid", gap: "1.2rem", width: "100%" }}>
-            <section className="panel reveal">
-              <div className="skeleton-box" style={{ width: "150px", height: "22px", marginBottom: "1.2rem" }} />
-              <div className="kpi-grid">
-                <div className="skeleton-box" style={{ height: "90px" }} />
-                <div className="skeleton-box" style={{ height: "90px" }} />
-                <div className="skeleton-box" style={{ height: "90px" }} />
-                <div className="skeleton-box" style={{ height: "90px" }} />
+        </div>
+        <div style={{ width: "min(1200px,94vw)", margin: "0 auto", padding: "2rem 0" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 1, background: S.border, borderRadius: 14, overflow: "hidden", marginBottom: "2rem" }}>
+            {[0,1,2,3].map(i => (
+              <div key={i} style={{ background: S.white, padding: "1.4rem 1.5rem", display: "flex", alignItems: "center", gap: "0.85rem" }}>
+                <div style={{ width: 46, height: 46, borderRadius: "50%", background: S.greenBg }} />
+                <div>
+                  <div style={{ width: 60, height: 20, background: S.border, borderRadius: 4, marginBottom: 6 }} />
+                  <div style={{ width: 80, height: 12, background: S.border, borderRadius: 4 }} />
+                </div>
               </div>
-            </section>
-            <section className="panel reveal">
-              <div className="skeleton-box" style={{ width: "200px", height: "22px", marginBottom: "1.2rem" }} />
-              <div className="skeleton-box" style={{ height: "160px" }} />
-            </section>
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: "1.5rem" }}>
+            <div style={{ background: S.white, borderRadius: 14, border: `1px solid ${S.border}`, padding: "1.5rem", height: 320 }} />
+            <div style={{ display: "grid", gap: "1rem" }}>
+              {[180, 240, 140].map((h,i) => <div key={i} style={{ background: S.white, borderRadius: 14, border: `1px solid ${S.border}`, height: h }} />)}
+            </div>
           </div>
         </div>
       </main>
     );
   }
 
+  // ── access blocked ────────────────────────────────────────────────────────
   if (!page || !liveData) {
     return (
-      <main className="page-shell">
-        <section className="panel reveal" style={{ maxWidth: "600px", margin: "4rem auto", textAlign: "center", padding: "3rem 2rem" }}>
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#f3c372" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: "1.5rem", display: "inline-block" }}>
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-          <p className="eyebrow" style={{ color: "var(--warn)" }}>{tx({ en: "/docs access control", bn: "/docs এক্সেস কন্ট্রোল" })}</p>
-          <h1 style={{ fontSize: "1.85rem", marginTop: "0.5rem" }}>{tx({ en: "Documentation Locked", bn: "ডকুমেন্টেশন লকড" })}</h1>
-          <p className="muted" style={{ margin: "1rem 0 2rem", fontSize: "0.98rem", lineHeight: "1.6" }}>
+      <main style={{ background: S.light, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ ...S.card, maxWidth: 520, width: "90%", padding: "3rem 2.5rem", textAlign: "center" }}>
+          <div style={{ width: 72, height: 72, borderRadius: "50%", background: "#fff7ed", border: "1px solid #fed7aa", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.5rem" }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#c2410c" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </div>
+          <h1 style={{ fontSize: "1.6rem", fontWeight: 800, color: S.dark, margin: "0 0 0.75rem" }}>
+            {tx({ en: "Documentation Unavailable", bn: "ডকুমেন্টেশন অনুপলব্ধ" })}
+          </h1>
+          <p style={{ color: S.muted, fontSize: "0.95rem", lineHeight: 1.65, margin: "0 0 1.5rem" }}>
             {blocked || tx({ en: "This page is currently hidden by administrator controls.", bn: "এই পেজটি বর্তমানে অ্যাডমিন কন্ট্রোল দ্বারা লুকানো আছে।" })}
           </p>
           {visibility && (
-            <div style={{ background: "rgba(243, 195, 114, 0.06)", border: "1px solid rgba(243, 195, 114, 0.2)", borderRadius: "12px", padding: "1rem", display: "inline-block", textAlign: "left", width: "100%" }}>
-              <p style={{ margin: 0, fontSize: "0.84rem", fontWeight: "600", color: "#f3c372" }}>{tx({ en: "Active Window Settings:", bn: "সক্রিয় উইন্ডো সেটিংস:" })}</p>
-              <ul style={{ margin: "0.5rem 0 0", paddingLeft: "1.2rem", fontSize: "0.82rem", color: "#e0ebfb", display: "grid", gap: "0.25rem" }}>
-                <li>{tx({ en: "Visibility Switch", bn: "ভিজিবিলিটি সুইচ" })}: <strong>{visibility.is_enabled ? tx({ en: "ENABLED", bn: "সক্রিয়" }) : tx({ en: "DISABLED", bn: "নিষ্ক্রিয়" })}</strong></li>
-                <li>{tx({ en: "Access Opens", bn: "অ্যাক্সেস খোলে" })}: <strong>{visibility.available_from ? new Date(visibility.available_from).toLocaleString() : tx({ en: "No limit", bn: "সীমা নেই" })}</strong></li>
-                <li>{tx({ en: "Access Closes", bn: "অ্যাক্সেস বন্ধ" })}: <strong>{visibility.available_until ? new Date(visibility.available_until).toLocaleString() : tx({ en: "No limit", bn: "সীমা নেই" })}</strong></li>
+            <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10, padding: "1rem 1.25rem", textAlign: "left" }}>
+              <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", fontWeight: 700, color: "#92400e" }}>Schedule:</p>
+              <ul style={{ margin: 0, paddingLeft: "1.1rem", fontSize: "0.82rem", color: "#78350f", display: "grid", gap: "0.2rem" }}>
+                <li>Enabled: <strong>{visibility.is_enabled ? "Yes" : "No"}</strong></li>
+                <li>Opens: <strong>{visibility.available_from ? new Date(visibility.available_from).toLocaleString() : "No limit"}</strong></li>
+                <li>Closes: <strong>{visibility.available_until ? new Date(visibility.available_until).toLocaleString() : "No limit"}</strong></li>
               </ul>
             </div>
           )}
-        </section>
+        </div>
       </main>
     );
   }
 
-  const technical = page.technical_sections || {};
-  const architectureDiagram = normalizeDiagramText(
-    (technical as Record<string, unknown>).architecture_diagram,
-    "No architecture diagram"
+  const technical       = page.technical_sections || {};
+  const architectureDiagram = normalizeDiagramText((technical as Record<string,unknown>).architecture_diagram, "No architecture diagram");
+  const dataFlowDiagram     = normalizeDiagramText((technical as Record<string,unknown>).data_flow_diagram, "No data flow diagram");
+  const provenance      = resolveProvenanceLists(technical as Record<string,unknown>);
+  const metrics         = resolveMetrics(liveData.metrics);
+  const placeholderTeam = (page.team_members || []).length === 1 && page.team_members?.[0]?.email === "team@jachaix.local";
+  const teamMembers     = placeholderTeam || !(page.team_members || []).length ? DEFAULT_PROJECT_TEAM_MEMBERS : (page.team_members || []);
+
+  const tocLink = (id: string, label: string) => (
+    <a
+      key={id}
+      href={`#${id}`}
+      onClick={e => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: "smooth" }); }}
+      style={{
+        display: "block", padding: "0.45rem 0.85rem", borderRadius: 8, textDecoration: "none",
+        fontSize: "0.85rem", fontWeight: activeId === id ? 600 : 400,
+        color: activeId === id ? S.green : S.mid,
+        background: activeId === id ? S.greenBg : "transparent",
+        borderLeft: `3px solid ${activeId === id ? S.green : "transparent"}`,
+        transition: "all .15s",
+      }}
+    >{label}</a>
   );
-  const dataFlowDiagram = normalizeDiagramText(
-    (technical as Record<string, unknown>).data_flow_diagram,
-    "No data flow diagram"
+
+  const SectionCard = ({ id, heading, sub, children }: { id: string; heading: string; sub?: string; children: React.ReactNode }) => (
+    <section id={id} style={{ ...S.card, padding: "1.75rem 2rem", scrollMarginTop: 90 }}>
+      <div style={{ marginBottom: sub ? "0.4rem" : "1.25rem" }}>
+        <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800, color: S.dark }}>{heading}</h2>
+        {sub && <p style={{ margin: "0.35rem 0 1.25rem", color: S.muted, fontSize: "0.88rem" }}>{sub}</p>}
+      </div>
+      {children}
+    </section>
   );
-  const provenance = resolveProvenanceLists(technical as Record<string, unknown>);
-  const metrics = resolveMetrics(liveData.metrics);
-  const placeholderTeam =
-    (page.team_members || []).length === 1 &&
-    page.team_members?.[0]?.email === "team@jachaix.local";
-  const teamMembers = placeholderTeam || !(page.team_members || []).length
-    ? DEFAULT_PROJECT_TEAM_MEMBERS
-    : (page.team_members || []);
+
+  const methodColor: Record<string, string> = { GET: "#2563eb", POST: "#16a34a", PATCH: "#d97706", PUT: "#7c3aed", DELETE: "#dc2626" };
 
   return (
-    <main className="page-shell">
-      <section className="hero-card reveal docs-hero">
-        {blocked && (
-          <div className="docs-warning-banner">
-            {tx({ en: "Docs API issue detected. Showing fallback frontend content so documentation remains visible.", bn: "ডকস API সমস্যা পাওয়া গেছে। ডকুমেন্টেশন দৃশ্যমান রাখতে fallback frontend কনটেন্ট দেখানো হচ্ছে।" })}
-            {visibility ? ` (${tx({ en: "Visibility", bn: "ভিজিবিলিটি" })}: ${visibility.is_enabled ? "ON" : "OFF"})` : ""}
+    <main style={{ background: S.light, minHeight: "100vh" }}>
+      {/* ── HERO ──────────────────────────────────────────────────────────── */}
+      <div style={{
+        background: "#0a1628",
+        backgroundImage: "radial-gradient(ellipse 50% 90% at 90% 50%,rgba(5,30,15,.9) 0%,transparent 65%),radial-gradient(circle,rgba(255,255,255,.04) 1px,transparent 1px)",
+        backgroundSize: "auto,26px 26px",
+      }}>
+        <div style={{ width: "min(1200px,94vw)", margin: "0 auto", padding: "3rem 0 2.5rem" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "2rem", flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 260 }}>
+              <h1 style={{ margin: "0 0 0.85rem", fontFamily: "var(--font-display),sans-serif", fontSize: "clamp(1.7rem,3vw,2.4rem)", fontWeight: 800, color: "#ffffff", lineHeight: 1.12, letterSpacing: "-0.02em" }}>
+                {tx({ en: "Pitch Deck + Technical Architecture", bn: "পিচ ডেক + টেকনিক্যাল আর্কিটেকচার" })}<br />
+                <span style={{ color: "#22c55e" }}>{tx({ en: "+ Live System Metrics", bn: "+ লাইভ সিস্টেম মেট্রিক্স" })}</span>
+              </h1>
+              <p style={{ margin: "0 0 1.5rem", color: "#9fb9d4", fontSize: "0.92rem", lineHeight: 1.65, maxWidth: 520 }}>
+                {tx({ en: "Understand JachaiX in minutes. Review technical system diagrams, endpoint maps, and live operational stats below.", bn: "কয়েক মিনিটে JachaiX বুঝুন। নিচে টেকনিক্যাল সিস্টেম ডায়াগ্রাম, এন্ডপয়েন্ট ম্যাপ ও লাইভ অপারেশনাল স্ট্যাট দেখুন।" })}
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.65rem" }}>
+                <button type="button" onClick={copyShareLink} style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", background: S.green, color: "#fff", border: "none", padding: "0.6rem 1.2rem", borderRadius: 8, fontWeight: 600, fontSize: "0.88rem", cursor: "pointer" }}>
+                  {copied
+                    ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>{copied}</>
+                    : <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>{tx({ en: "Copy Link", bn: "লিংক কপি" })}</>
+                  }
+                </button>
+                <button type="button" onClick={exportMarkdown} style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", background: "transparent", color: "#9fb9d4", border: "1px solid rgba(159,185,212,.25)", padding: "0.6rem 1.2rem", borderRadius: 8, fontWeight: 600, fontSize: "0.88rem", cursor: "pointer" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  {tx({ en: "Export MD", bn: "MD এক্সপোর্ট" })}
+                </button>
+                <button type="button" onClick={() => window.print()} style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", background: "transparent", color: "#9fb9d4", border: "1px solid rgba(159,185,212,.25)", padding: "0.6rem 1.2rem", borderRadius: 8, fontWeight: 600, fontSize: "0.88rem", cursor: "pointer" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                  {tx({ en: "Print PDF", bn: "PDF প্রিন্ট" })}
+                </button>
+              </div>
+            </div>
           </div>
-        )}
-        <div className="hero-top">
-          <p className="eyebrow">{tx({ en: "Interactive Live Docs", bn: "ইন্টারঅ্যাকটিভ লাইভ ডকস" })}</p>
-          <div className="live-pill">v{page.version}</div>
         </div>
-        <h1 style={{ fontSize: "2.1rem", marginTop: "0.5rem" }}>{tx({ en: "Pitch Deck + Technical Architecture + Live Sandbox", bn: "পিচ ডেক + টেকনিক্যাল আর্কিটেকচার + লাইভ স্যান্ডবক্স" })}</h1>
-        <p className="subtitle" style={{ fontSize: "1.02rem", marginTop: "0.6rem" }}>
-          {tx({ en: "Understand JachaiX in minutes. Review technical system diagrams, endpoint maps, and live operational stats below.", bn: "কয়েক মিনিটে JachaiX বুঝুন। নিচে টেকনিক্যাল সিস্টেম ডায়াগ্রাম, এন্ডপয়েন্ট ম্যাপ ও লাইভ অপারেশনাল স্ট্যাট দেখুন।" })}
-        </p>
-        <div className="docs-actions">
-          <button type="button" onClick={copyShareLink} style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
-            {copied ? (
+      </div>
+
+      {/* ── STATS ROW ─────────────────────────────────────────────────────── */}
+      <div style={{ width: "min(1200px,94vw)", margin: "0 auto", padding: "2rem 0 0" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", background: S.white, border: `1px solid ${S.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 18px rgba(15,23,42,.06)", marginBottom: "2rem" }}>
+          {[
+            { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, val: metrics.users, label: tx({ en: "Active Users", bn: "সক্রিয় ব্যবহারকারী" }) },
+            { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>, val: metrics.claims_total, label: tx({ en: "Claims Total", bn: "মোট ক্লেম" }) },
+            { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>, val: liveClaims ?? metrics.claims_completed, label: tx({ en: "Verified Claims", bn: "যাচাইকৃত ক্লেম" }) },
+            { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="#16a34a" stroke="none"/></svg>, val: liveFactChecks ?? metrics.published_fact_checks, label: tx({ en: "Published Checks", bn: "প্রকাশিত চেকস" }) },
+          ].map((s, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.85rem", padding: "1.4rem 1.5rem", borderRight: i < 3 ? `1px solid ${S.border}` : "none" }}>
+              <span style={{ width: 46, height: 46, borderRadius: "50%", background: S.greenBg, border: `1px solid ${S.greenBd}`, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>{s.icon}</span>
+              <div style={{ lineHeight: 1.2 }}>
+                <strong style={{ display: "block", fontSize: "1.5rem", fontWeight: 800, color: S.dark }}>{s.val}</strong>
+                <span style={{ color: S.muted, fontSize: "0.88rem" }}>{s.label}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── BODY: sidebar + content ──────────────────────────────────────── */}
+        <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: "1.5rem", alignItems: "start", paddingBottom: "3rem" }}>
+
+          {/* ── STICKY SIDEBAR TOC ───────────────────────────────────────── */}
+          <aside style={{ position: "sticky", top: 90, background: S.white, border: `1px solid ${S.border}`, borderRadius: 14, padding: "1.25rem 1rem", boxShadow: "0 2px 8px rgba(15,23,42,.04)" }}>
+            <div style={{ position: "relative", marginBottom: "1rem" }}>
+              <input
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder={tx({ en: "Search docs…", bn: "ডকস খুঁজুন…" })}
+                style={{ width: "100%", border: `1px solid ${S.border}`, borderRadius: 8, padding: "0.45rem 0.7rem 0.45rem 2rem", fontSize: "0.8rem", color: S.dark, outline: "none", boxSizing: "border-box" }}
+              />
+              <svg style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: S.muted }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </div>
+
+            <p style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: S.muted, margin: "0 0 0.5rem 0.85rem" }}>Overview</p>
+            {tocLink("metrics", tx({ en: "Live Metrics", bn: "লাইভ মেট্রিক্স" }))}
+
+            {visibleSections.length > 0 && (
               <>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#53e6c4" }}>
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                <span>{copied}</span>
-              </>
-            ) : (
-              <>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                </svg>
-                <span>{tx({ en: "Copy Share Link", bn: "শেয়ার লিংক কপি করুন" })}</span>
+                <p style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: S.muted, margin: "1rem 0 0.5rem 0.85rem" }}>Pitch Deck</p>
+                {visibleSections.map(s => tocLink(s.id, s.title))}
               </>
             )}
-          </button>
-          <button type="button" className="secondary" onClick={exportMarkdown} style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            <span>{tx({ en: "Export Markdown", bn: "মার্কডাউন এক্সপোর্ট" })}</span>
-          </button>
-          <button type="button" className="secondary" onClick={() => window.print()} style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 9V2h12v7" />
-              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-              <rect x="6" y="14" width="12" height="8" />
-            </svg>
-            <span>{tx({ en: "Export PDF", bn: "PDF এক্সপোর্ট" })}</span>
-          </button>
-        </div>
-      </section>
 
-      {/* Docs Mobile Pill Navigation */}
-      <section className="panel reveal docs-mobile-toc">
-        <div style={{ display: "grid", gap: "0.5rem" }}>
-          <span style={{ fontSize: "0.75rem", textTransform: "uppercase", fontWeight: "700", color: "var(--warn)" }}>{tx({ en: "Table of Contents", bn: "সূচিপত্র" })}</span>
-          <select value={activeId} onChange={(e) => {
-            const el = document.getElementById(e.target.value);
-            if (el) el.scrollIntoView({ behavior: "smooth" });
-          }}>
-            <option value="metrics">{tx({ en: "Live metrics", bn: "লাইভ মেট্রিক্স" })}</option>
-            {visibleSections.map((section) => (
-              <option key={section.id} value={section.id}>{section.title}</option>
-            ))}
-            <option value="architecture">{tx({ en: "Architecture details", bn: "আর্কিটেকচার বিবরণ" })}</option>
-            <option value="api">{tx({ en: "API documentation", bn: "API ডকুমেন্টেশন" })}</option>
-            <option value="provenance">{tx({ en: "Data & AI provenance", bn: "ডেটা ও এআই প্রোভেন্যান্স" })}</option>
-            <option value="team">{tx({ en: "Team members", bn: "টিম মেম্বার" })}</option>
-            <option value="events">{tx({ en: "Recent pipeline events", bn: "সাম্প্রতিক পাইপলাইন ইভেন্ট" })}</option>
-          </select>
-        </div>
-      </section>
+            <p style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: S.muted, margin: "1rem 0 0.5rem 0.85rem" }}>Technical</p>
+            {tocLink("architecture", tx({ en: "Architecture", bn: "আর্কিটেকচার" }))}
+            {tocLink("api", tx({ en: "API Docs", bn: "API ডকস" }))}
+            {tocLink("provenance", tx({ en: "Data & AI", bn: "ডেটা ও এআই" }))}
+            {tocLink("team", tx({ en: "Team", bn: "টিম" }))}
+            {(liveData.events?.length ?? 0) > 0 && tocLink("events", tx({ en: "Events", bn: "ইভেন্ট" }))}
+          </aside>
 
-      {/* Split screen content layout */}
-      <div className="docs-split-container">
-        {/* Sticky Table of Contents Sidebar */}
-        <aside className="docs-sidebar-nav">
-          <p className="docs-sidebar-title">Documentation</p>
-          <a href="#metrics" className={`docs-sidebar-link ${activeId === "metrics" ? "active" : ""}`}>
-            Live System Metrics
-          </a>
+          {/* ── MAIN CONTENT ────────────────────────────────────────────── */}
+          <div style={{ display: "grid", gap: "1.25rem" }}>
 
-          {visibleSections.length > 0 && (
-            <>
-              <p className="docs-sidebar-title" style={{ marginTop: "1rem" }}>Pitch Deck</p>
-              {visibleSections.map((section) => (
-                <a
-                  key={section.id}
-                  href={`#${section.id}`}
-                  className={`docs-sidebar-link ${activeId === section.id ? "active" : ""}`}
-                  title={section.title}
-                >
-                  {section.title}
-                </a>
-              ))}
-            </>
-          )}
-
-          <p className="docs-sidebar-title" style={{ marginTop: "1rem" }}>Technical Details</p>
-          <a href="#architecture" className={`docs-sidebar-link ${activeId === "architecture" ? "active" : ""}`}>
-            Architecture Diagrams
-          </a>
-          <a href="#api" className={`docs-sidebar-link ${activeId === "api" ? "active" : ""}`}>
-            API Documentation
-          </a>
-          <a href="#provenance" className={`docs-sidebar-link ${activeId === "provenance" ? "active" : ""}`}>
-            Data & AI Provenance
-          </a>
-          <a href="#team" className={`docs-sidebar-link ${activeId === "team" ? "active" : ""}`}>
-            Team
-          </a>
-          <a href="#events" className={`docs-sidebar-link ${activeId === "events" ? "active" : ""}`}>
-            Recent Events
-          </a>
-        </aside>
-
-        {/* Main Content Area */}
-        <div style={{ display: "grid", gap: "1.2rem" }}>
-          {/* Live System Metrics Section */}
-          <section id="metrics" className="panel reveal delay-1" style={{ scrollMarginTop: "100px" }}>
-            <h2>Live System Metrics</h2>
-            <div className="docs-metrics-grid">
-              <article className="docs-metric-card">
-                <div className="docs-metric-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                </div>
-                <div className="docs-metric-details">
-                  <span className="docs-metric-number">{metrics.users}</span>
-                  <span className="docs-metric-title">Active Users</span>
-                </div>
-              </article>
-
-              <article className="docs-metric-card">
-                <div className="docs-metric-icon" style={{ color: "var(--accent)" }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                </div>
-                <div className="docs-metric-details">
-                  <span className="docs-metric-number">{metrics.claims_total}</span>
-                  <span className="docs-metric-title">Claims Total</span>
-                </div>
-              </article>
-
-              <article className="docs-metric-card">
-                <div className="docs-metric-icon" style={{ color: "var(--accent-2)" }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 11.08 22 12 12 22 2 12 12 2 19 2"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                </div>
-                <div className="docs-metric-details">
-                  <span className="docs-metric-number">{metrics.claims_completed}</span>
-                  <span className="docs-metric-title">Completed</span>
-                </div>
-              </article>
-
-              <article className="docs-metric-card">
-                <div className="docs-metric-icon" style={{ color: "var(--warn)" }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                </div>
-                <div className="docs-metric-details">
-                  <span className="docs-metric-number">{metrics.published_fact_checks}</span>
-                  <span className="docs-metric-title">Published Fact Checks</span>
-                </div>
-              </article>
-            </div>
-          </section>
-
-          {/* Search bar inside split deck */}
-          <section className="panel reveal">
-            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
-              <h2 style={{ margin: 0 }}>Pitch & Operational Deck</h2>
-              <input
-                className="search-input"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search deck and technical data..."
-                style={{ width: "260px" }}
-              />
-            </div>
-          </section>
-
-          {/* YC Pitch Deck Sections */}
-          {visibleSections.length > 0 && (
-            <section className="panel reveal">
-              <h2>YC-Style Pitch Deck</h2>
-              <div className="docs-section-list">
-                {visibleSections.map((section: DocsPitchSection) => (
-                  <article key={section.id} id={section.id} className="docs-section-card">
-                    <h3>{section.title}</h3>
-                    <p>{section.content}</p>
-                  </article>
+            {/* Live Metrics */}
+            <SectionCard id="metrics" heading={tx({ en: "Live System Metrics", bn: "লাইভ সিস্টেম মেট্রিক্স" })} sub={tx({ en: "Real-time operational stats from the JachaiX platform.", bn: "JachaiX প্ল্যাটফর্মের রিয়েল-টাইম অপারেশনাল স্ট্যাট।" })}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "0.75rem" }}>
+                {[
+                  { label: tx({ en: "Active Users", bn: "সক্রিয় ব্যবহারকারী" }), val: metrics.users, color: "#2563eb" },
+                  { label: tx({ en: "Claims Total", bn: "মোট ক্লেম" }), val: metrics.claims_total, color: "#7c3aed" },
+                  { label: tx({ en: "Verified Claims", bn: "যাচাইকৃত ক্লেম" }), val: liveClaims ?? metrics.claims_completed, color: S.green },
+                  { label: tx({ en: "Published Fact Checks", bn: "প্রকাশিত ফ্যাক্ট চেকস" }), val: liveFactChecks ?? metrics.published_fact_checks, color: "#d97706" },
+                ].map(m => (
+                  <div key={m.label} style={{ background: S.light, border: `1px solid ${S.border}`, borderRadius: 10, padding: "1.1rem 1.25rem", borderTop: `3px solid ${m.color}` }}>
+                    <strong style={{ display: "block", fontSize: "1.8rem", fontWeight: 800, color: S.dark, lineHeight: 1 }}>{m.val}</strong>
+                    <span style={{ fontSize: "0.8rem", color: S.muted, marginTop: 4, display: "block" }}>{m.label}</span>
+                  </div>
                 ))}
               </div>
-            </section>
-          )}
+            </SectionCard>
 
-          {/* Architecture Sections */}
-          <section id="architecture" className="panel reveal" style={{ scrollMarginTop: "100px" }}>
-            <h2>Architecture & Technical Whitepaper</h2>
-            <p className="muted" style={{ marginBottom: "1rem" }}>System blueprints showing data pipeline and worker structures.</p>
+            {/* Pitch Deck */}
+            {visibleSections.length > 0 && (
+              <SectionCard id={visibleSections[0].id} heading={tx({ en: "Pitch Deck", bn: "পিচ ডেক" })} sub={tx({ en: "Business overview and product narrative.", bn: "ব্যবসায়িক সংক্ষিপ্তসার ও পণ্য বিবরণ।" })}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: "1rem" }}>
+                  {visibleSections.map((s: DocsPitchSection) => (
+                    <div key={s.id} id={s.id} style={{ background: S.light, border: `1px solid ${S.border}`, borderRadius: 12, padding: "1.25rem 1.5rem", scrollMarginTop: 90 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.65rem" }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: S.green, flexShrink: 0 }} />
+                        <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: S.dark }}>{s.title}</h3>
+                      </div>
+                      <p style={{ margin: 0, fontSize: "0.87rem", color: S.mid, lineHeight: 1.65 }}>{s.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+            )}
 
-            <article className="docs-code-container">
-              <div className="docs-code-header">
-                <span className="docs-code-title">Architecture Diagram</span>
-                <button
-                  type="button"
-                  className="docs-code-copy-btn"
-                  onClick={() => copyToClipboard("arch", architectureDiagram)}
-                >
-                  {copyStates["arch"] || "Copy Diagram"}
-                </button>
-              </div>
-              <pre className="docs-code-block">{architectureDiagram}</pre>
-            </article>
+            {/* Architecture */}
+            <SectionCard id="architecture" heading={tx({ en: "Architecture & Technical Whitepaper", bn: "আর্কিটেকচার ও টেকনিক্যাল হোয়াইটপেপার" })} sub={tx({ en: "System blueprints showing the data pipeline and worker structures.", bn: "ডেটা পাইপলাইন ও ওয়ার্কার স্ট্রাকচারের সিস্টেম ব্লুপ্রিন্ট।" })}>
+              {[
+                { key: "arch", label: tx({ en: "Architecture Diagram", bn: "আর্কিটেকচার ডায়াগ্রাম" }), content: architectureDiagram },
+                { key: "flow", label: tx({ en: "Data Flow Diagram", bn: "ডেটা ফ্লো ডায়াগ্রাম" }), content: dataFlowDiagram },
+              ].map(block => (
+                <div key={block.key} style={{ background: S.light, border: `1px solid ${S.border}`, borderRadius: 10, overflow: "hidden", marginBottom: "1rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.6rem 1rem", borderBottom: `1px solid ${S.border}`, background: "#f8fafc" }}>
+                    <span style={{ fontSize: "0.82rem", fontWeight: 600, color: S.dark, fontFamily: "monospace" }}>{block.label}</span>
+                    <button type="button" onClick={() => copyToClipboard(block.key, block.content)} style={{ fontSize: "0.75rem", color: S.green, background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>
+                      {copyStates[block.key] || tx({ en: "Copy", bn: "কপি" })}
+                    </button>
+                  </div>
+                  <pre style={{ margin: 0, padding: "1rem", fontSize: "0.8rem", color: S.mid, fontFamily: "monospace", lineHeight: 1.7, overflowX: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{block.content}</pre>
+                </div>
+              ))}
+            </SectionCard>
 
-            <article className="docs-code-container" style={{ marginTop: "1.5rem" }}>
-              <div className="docs-code-header">
-                <span className="docs-code-title">Data Flow Diagram</span>
-                <button
-                  type="button"
-                  className="docs-code-copy-btn"
-                  onClick={() => copyToClipboard("flow", dataFlowDiagram)}
-                >
-                  {copyStates["flow"] || "Copy Diagram"}
-                </button>
-              </div>
-              <pre className="docs-code-block">{dataFlowDiagram}</pre>
-            </article>
-          </section>
-
-          {/* API Registry Documentation */}
-          <section id="api" className="panel reveal" style={{ scrollMarginTop: "100px" }}>
-            <h2>API Documentation</h2>
-            <p className="muted" style={{ marginBottom: "1rem" }}>Registered endpoints used by JachaiX claim validation clients.</p>
-            <div className="table-wrap" style={{ borderRadius: "12px", border: "1px solid rgba(126, 188, 230, 0.15)", overflow: "hidden" }}>
-              <table className="data-table" style={{ borderCollapse: "collapse" }}>
-                <thead>
-                  <tr style={{ background: "rgba(10, 20, 36, 0.5)" }}>
-                    <th style={{ padding: "0.75rem 1rem" }}>Method</th>
-                    <th style={{ padding: "0.75rem 1rem" }}>Endpoint Route</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {liveData.apis.map((api) => {
-                    const methodLower = (api.method || "get").toLowerCase();
-                    return (
-                      <tr key={`${api.method}-${api.path}`}>
-                        <td style={{ padding: "0.75rem 1rem", width: "120px" }}>
-                          <span className={`api-badge ${methodLower}`}>
+            {/* API Docs */}
+            <SectionCard id="api" heading={tx({ en: "API Documentation", bn: "API ডকুমেন্টেশন" })} sub={tx({ en: "Registered endpoints used by JachaiX claim validation clients.", bn: "JachaiX ক্লেম ভ্যালিডেশন ক্লায়েন্ট দ্বারা ব্যবহৃত এন্ডপয়েন্ট।" })}>
+              <div style={{ border: `1px solid ${S.border}`, borderRadius: 10, overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ background: "#f8fafc" }}>
+                      <th style={{ padding: "0.65rem 1rem", textAlign: "left", fontSize: "0.78rem", fontWeight: 700, color: S.muted, borderBottom: `1px solid ${S.border}`, width: 90 }}>Method</th>
+                      <th style={{ padding: "0.65rem 1rem", textAlign: "left", fontSize: "0.78rem", fontWeight: 700, color: S.muted, borderBottom: `1px solid ${S.border}` }}>Endpoint</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {liveData.apis.map((api, i) => (
+                      <tr key={`${api.method}-${api.path}`} style={{ borderBottom: i < liveData.apis.length - 1 ? `1px solid ${S.border}` : "none" }}>
+                        <td style={{ padding: "0.6rem 1rem" }}>
+                          <span style={{ background: `${methodColor[api.method] || "#64748b"}18`, color: methodColor[api.method] || "#64748b", border: `1px solid ${methodColor[api.method] || "#64748b"}30`, borderRadius: 6, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, fontFamily: "monospace" }}>
                             {api.method}
                           </span>
                         </td>
-                        <td style={{ padding: "0.75rem 1rem", fontFamily: "monospace", color: "#eff5ff", fontSize: "0.9rem" }}>
-                          {api.path}
-                        </td>
+                        <td style={{ padding: "0.6rem 1rem", fontFamily: "monospace", fontSize: "0.85rem", color: S.dark }}>{api.path}</td>
                       </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </SectionCard>
+
+            {/* Data & AI Provenance */}
+            <SectionCard id="provenance" heading={tx({ en: "Data & AI Provenance", bn: "ডেটা ও এআই প্রোভেন্যান্স" })} sub={tx({ en: "Data sources, model stack, and responsible AI controls used in JachaiX.", bn: "JachaiX-এ ব্যবহৃত ডেটা সোর্স, মডেল স্ট্যাক ও দায়িত্বশীল এআই নিয়ন্ত্রণ।" })}>
+              {[
+                { title: tx({ en: "Data Sources", bn: "ডেটা সোর্স" }), items: provenance.dataSources, color: "#2563eb" },
+                { title: tx({ en: "AI Models", bn: "এআই মডেল" }), items: provenance.aiModels, color: "#7c3aed" },
+                { title: tx({ en: "Responsible AI", bn: "দায়িত্বশীল এআই" }), items: provenance.responsibleAi, color: S.green },
+              ].map(g => (
+                <div key={g.title} style={{ background: S.light, border: `1px solid ${S.border}`, borderRadius: 10, padding: "1.25rem 1.5rem", marginBottom: "1rem" }}>
+                  <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.95rem", fontWeight: 700, color: S.dark, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <span style={{ width: 10, height: 10, borderRadius: "50%", background: g.color, flexShrink: 0 }} />{g.title}
+                  </h3>
+                  <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.45rem" }}>
+                    {g.items.map((item, idx) => <li key={idx} style={{ fontSize: "0.87rem", color: S.mid, lineHeight: 1.6 }}>{item}</li>)}
+                  </ul>
+                </div>
+              ))}
+            </SectionCard>
+
+            {/* Team */}
+            <SectionCard id="team" heading={tx({ en: "Project Team", bn: "প্রজেক্ট টিম" })} sub={page.team_name || "JachaiX Core Team"}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: "1rem" }}>
+                {teamMembers.map(member => (
+                  <div key={`${member.name}-${member.email}`} style={{ background: S.light, border: `1px solid ${S.border}`, borderRadius: 12, padding: "1.5rem 1.25rem", textAlign: "center" }}>
+                    {member.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={member.image_url} alt={member.name} style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", border: `2px solid ${S.greenBd}`, marginBottom: "0.85rem" }} />
+                    ) : (
+                      <div style={{ width: 64, height: 64, borderRadius: "50%", background: S.greenBg, border: `2px solid ${S.greenBd}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 0.85rem", fontSize: "1.4rem", fontWeight: 800, color: S.green }}>
+                        {member.name.slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
+                    <h3 style={{ margin: "0 0 0.35rem", fontSize: "0.95rem", fontWeight: 700, color: S.dark }}>{member.name}</h3>
+                    <p style={{ margin: "0 0 0.85rem", fontSize: "0.78rem", color: S.muted, lineHeight: 1.5 }}>{member.role}</p>
+                    <a href={`mailto:${member.email}`} style={{ fontSize: "0.8rem", color: S.green, textDecoration: "none", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                      {member.email}
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+
+            {/* Recent Events */}
+            {(liveData.events?.length ?? 0) > 0 && (
+              <SectionCard id="events" heading={tx({ en: "Recent Pipeline Events", bn: "সাম্প্রতিক পাইপলাইন ইভেন্ট" })} sub={tx({ en: "Live chronological verification timeline.", bn: "লাইভ ক্রোনোলজিক্যাল ভেরিফিকেশন টাইমলাইন।" })}>
+                <div style={{ display: "grid", gap: "0.75rem" }}>
+                  {liveData.events.map(event => {
+                    const v = (event.verdict || "unverified").toLowerCase();
+                    const vColors: Record<string, [string, string]> = { true: ["#dcfce7","#16a34a"], false: ["#fee2e2","#dc2626"], misleading: ["#fff7ed","#c2410c"], unverified: ["#f1f5f9","#64748b"] };
+                    const [vBg, vCol] = vColors[v] || vColors.unverified;
+                    return (
+                      <div key={event.id} style={{ display: "flex", alignItems: "center", gap: "1rem", background: S.light, border: `1px solid ${S.border}`, borderRadius: 10, padding: "0.85rem 1.25rem" }}>
+                        <span style={{ background: vBg, color: vCol, border: `1px solid ${vCol}40`, borderRadius: 6, padding: "3px 9px", fontSize: "0.72rem", fontWeight: 700, flexShrink: 0 }}>
+                          {v.toUpperCase()}
+                        </span>
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontSize: "0.85rem", fontWeight: 600, color: S.dark }}>Claim #{event.id}</span>
+                          <span style={{ fontSize: "0.8rem", color: S.muted, marginLeft: "0.75rem" }}>{event.status} · {event.language}</span>
+                        </div>
+                        <span style={{ fontSize: "0.78rem", color: S.muted, flexShrink: 0 }}>{event.created_at ? new Date(event.created_at).toLocaleDateString() : "—"}</span>
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          {/* Data & AI Provenance */}
-          <section id="provenance" className="panel reveal" style={{ scrollMarginTop: "100px" }}>
-            <h2>Data & AI Provenance</h2>
-            <p className="muted" style={{ marginBottom: "1rem" }}>
-              Data sources, model stack, and responsible AI controls used in JachaiX.
-            </p>
-
-            <article className="docs-section-card" style={{ marginBottom: "1rem" }}>
-              <h3>Data Sources</h3>
-              <ul style={{ margin: "0.6rem 0 0", paddingLeft: "1.2rem", display: "grid", gap: "0.4rem" }}>
-                {provenance.dataSources.map((item, idx) => (
-                  <li key={`ds-${idx}`}>{item}</li>
-                ))}
-              </ul>
-            </article>
-
-            <article className="docs-section-card" style={{ marginBottom: "1rem" }}>
-              <h3>AI Models</h3>
-              <ul style={{ margin: "0.6rem 0 0", paddingLeft: "1.2rem", display: "grid", gap: "0.4rem" }}>
-                {provenance.aiModels.map((item, idx) => (
-                  <li key={`am-${idx}`}>{item}</li>
-                ))}
-              </ul>
-            </article>
-
-            <article className="docs-section-card">
-              <h3>Responsible AI</h3>
-              <ul style={{ margin: "0.6rem 0 0", paddingLeft: "1.2rem", display: "grid", gap: "0.4rem" }}>
-                {provenance.responsibleAi.map((item, idx) => (
-                  <li key={`ra-${idx}`}>{item}</li>
-                ))}
-              </ul>
-            </article>
-          </section>
-
-          {/* Team Section */}
-          <section id="team" className="panel reveal" style={{ scrollMarginTop: "100px" }}>
-            <h2>Project Team</h2>
-            <p className="muted" style={{ marginBottom: "1.25rem" }}>{page.team_name || "Team members list"}</p>
-            <div className="team-grid">
-              {teamMembers.map((member) => (
-                <article className="team-card" key={`${member.name}-${member.email}`}>
-                  <div className="team-avatar-wrap">
-                    {member.image_url ? (
-                      <img src={member.image_url} alt={member.name} className="team-avatar" />
-                    ) : (
-                      <div className="team-avatar-fallback">{member.name.slice(0, 1).toUpperCase()}</div>
-                    )}
-                  </div>
-                  <h3>{member.name}</h3>
-                  <p className="muted" style={{ fontSize: "0.82rem", margin: "0.15rem 0 0.85rem" }}>{member.role}</p>
-                  <a href={`mailto:${member.email}`}>Contact Email</a>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          {/* Timeline Audit Logs */}
-          <section id="events" className="panel reveal" style={{ scrollMarginTop: "100px" }}>
-            <h2>Recent Events</h2>
-            <p className="muted" style={{ marginBottom: "1.25rem" }}>Live chronological verification timeline logs.</p>
-            <div className="timeline">
-              {(liveData.events || []).map((event) => (
-                <article className="timeline-item" key={event.id}>
-                  <p className="metric-label">Claim #{event.id}</p>
-                  <h3>
-                    Status: {event.status.toUpperCase()} · Verdict: {(event.verdict || "unverified").toUpperCase()}
-                  </h3>
-                  <p className="muted">Language: {event.language} · Timestamp: {event.created_at || "-"}</p>
-                </article>
-              ))}
-            </div>
-          </section>
+                </div>
+              </SectionCard>
+            )}
+          </div>
         </div>
       </div>
     </main>
