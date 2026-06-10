@@ -1,252 +1,127 @@
+<div align="center">
+
 # JachaiX
 
-Bangla-first fake-news detection pipeline for text, image, and PDF claims.
+### Bilingual, evidence-first misinformation verification for Bangla & English
 
-## Pipeline
+Submit a claim as **text, image, PDF, or URL** — JachaiX retrieves real evidence, runs a
+multi-model consensus, and returns a **verdict with confidence, an explanation, and clickable sources.**
 
-User submits claim -> Laravel API -> ProcessAnalysisJob -> embedder + Qdrant retrieval -> reranker -> verdict generation -> MySQL result -> user result API.
+[**Live App**](https://jachai-x.vercel.app) · [Fact-Check Hub](https://jachai-x.vercel.app/facts) · [Documentation](https://jachai-x.vercel.app/docs)
 
-## Who This Guide Is For
+`Next.js` · `Laravel` · `MySQL` · `Redis` · `Qdrant` · `Python AI services` · `Docker`
 
-This guide is for a teammate who clones the repo and wants to run the full pipeline end-to-end exactly as it works now.
+</div>
 
-Assumption: Docker, PHP, and Git are already installed.
+---
 
-## 1) Clone and Enter Project
+## Overview
 
-```powershell
+Misinformation — deepfakes, fabricated screenshots, out-of-context media — spreads faster than
+newsrooms can debunk it, and almost every automated tool is **English-only**. JachaiX is an
+**evidence-first, Bangla-first** verification engine that makes fact-checking fast, transparent,
+and source-grounded.
+
+Every verdict is backed by retrieved evidence, scored by a **pool of independent LLMs that must
+agree**, and — when evidence is weak — conservatively returned as *Unverified* and escalated for
+human review.
+
+## Key Features
+
+- 🔎 **Multi-modal claims** — verify text, images/screenshots (OCR), PDFs, and URLs.
+- 🌐 **Bilingual (Bangla + English)** — first-class support for a 200M+ speaker market.
+- 🧠 **Hybrid Retrieval-Augmented Generation** — dense vector search (Qdrant) fused with BM25
+  keyword search, then re-ranked by a cross-encoder.
+- 🤝 **Multi-provider LLM consensus** — Groq, OpenRouter, Cerebras, and Hugging Face vote on a
+  verdict, so no single model can bias or hallucinate the result.
+- 🔁 **Self-learning knowledge base** — a nightly crawler ingests trusted outlets; an Auto-RAG web
+  fallback fetches fresh evidence when the local KB lacks coverage.
+- 🧾 **Transparent results** — verdict, confidence score, trust label, plain-language explanation,
+  and source links on every claim.
+- 👤 **User platform** — JWT auth, dashboards, claim history, bookmarks, saved searches, and notifications.
+- 🛠️ **MCP server** — external AI agents can call JachaiX as a verification tool.
+
+## Architecture
+
+```
+Browser ──► Next.js Frontend (Vercel) ──/api/v1/* proxy──► Laravel API (Nginx)
+                                                              │
+                                              Redis Queue ──► Worker (ProcessAnalysisJob) + Scheduler
+                                                              │
+        ┌───────────────────────────────────────────────────┴───────────────────────────┐
+        │  OCR (EasyOCR)   Embedder (Jina v3, 1024d)   Reranker (BGE cross-encoder)        │
+        │  MySQL (claims + BM25)   Qdrant (vector KB)   LLM Pool (Groq/OpenRouter/…)        │
+        │  KB Crawler + Chunker (nightly)   Auto-RAG web fallback (GNews + Wikipedia)       │
+        └───────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Verification flow:** `Input → OCR + normalize → query expansion (HyDE / Banglish) → hybrid retrieval
+→ cross-encoder rerank → multi-LLM consensus → trust scoring → verdict + sources` (low-confidence → human review).
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 14 (App Router), React, TypeScript, bilingual i18n |
+| Backend | Laravel (PHP 8.3), Nginx + PHP-FPM, Supervisor (queue + scheduler) |
+| Datastores | MySQL 8 (claims + BM25), Redis (queue/cache), Qdrant (vectors) |
+| AI services | OCR (EasyOCR), Embedder (Jina v3 API), Reranker (BGE cross-encoder, FlagEmbedding) |
+| LLMs | Multi-provider pool — Groq, OpenRouter, Cerebras, Hugging Face |
+| Auth | JWT (`php-open-source-saver/jwt-auth`), role-based middleware |
+| Infra | Docker Compose; frontend on Vercel, backend on a Linux VPS |
+
+## Getting Started (local)
+
+> Requires **Docker Desktop**, **Node.js 18+**, and **Git**.
+
+```bash
 git clone https://github.com/Zamila18/JachaiX.git
 cd JachaiX
-```
 
-## 2) Create Environment Files
-
-```powershell
-Copy-Item .env.example .env
-Copy-Item backend\.env.example backend\.env
-```
-
-Update root `.env`:
-
-```env
-MYSQL_ROOT_PASSWORD=your_root_password
-MYSQL_DATABASE=jachaix
-MYSQL_USER=jachaix
-MYSQL_PASSWORD=your_db_password
-```
-
-Update `backend/.env`:
-
-```env
-DB_CONNECTION=mysql
-DB_HOST=mysql
-DB_PORT=3306
-DB_DATABASE=jachaix
-DB_USERNAME=jachaix
-DB_PASSWORD=your_db_password
-
-QUEUE_CONNECTION=database
-
-OPENAI_API_KEY=ollama
-OPENAI_MODEL=llama3.2
-OPENAI_BASE_URL=http://host.docker.internal:11434/v1
-```
-
-## 3) Start All Containers
-
-```powershell
+# 1. Backend + services (create backend/.env and root .env first — see .env.example)
 docker compose up -d --build
-docker ps
-```
-
-Expected running services include: `nginx`, `app`, `mysql`, `redis`, `qdrant`, `ocr-service`, `embedder-service`, `reranker-service`.
-
-## 4) Run Laravel Setup Once
-
-```powershell
+docker exec jachaix-app-1 composer install
 docker exec jachaix-app-1 php artisan key:generate
+docker exec jachaix-app-1 php artisan jwt:secret --force
 docker exec jachaix-app-1 php artisan migrate --force
-```
 
-If container name differs, get it from:
-
-```powershell
-docker ps --format "table {{.Names}}\t{{.Status}}"
-```
-
-## 5) Start Queue Worker (Required)
-
-Run this in a separate terminal and keep it running:
-
-```powershell
-docker exec -it jachaix-app-1 php artisan queue:work --tries=3 --timeout=900
-```
-
-For faster throughput, run multiple workers in separate terminals:
-
-```powershell
-docker exec -it jachaix-app-1 php artisan queue:work --tries=3 --timeout=900 --sleep=1
-docker exec -it jachaix-app-1 php artisan queue:work --tries=3 --timeout=900 --sleep=1
-docker exec -it jachaix-app-1 php artisan queue:work --tries=3 --timeout=900 --sleep=1
-```
-
-## 5.1) Fast Mode (Demo Latency)
-
-Use these values in `backend/.env` for faster claim turnaround during demos:
-
-```env
-OPENAI_MODEL=qwen2:0.5b
-OPENAI_CLAIM_MODEL=qwen2:0.5b
-OPENAI_QUERY_MODEL=qwen2:0.5b
-OPENAI_VERDICT_MODEL=qwen2:0.5b
-OPENAI_VERDICT_FAST_MODEL=qwen2:0.5b
-OPENAI_VERDICT_STRONG_MODEL=qwen2:0.5b
-
-RETRIEVAL_TOP_K_PER_QUERY=4
-RETRIEVAL_MAX_CANDIDATES=6
-RETRIEVAL_SIMILARITY_THRESHOLD=0.45
-
-VERDICT_FAST_MODEL_TIMEOUT=8
-VERDICT_STRONG_MODEL_TIMEOUT=12
-VERDICT_ENABLE_STRONG_MODEL=false
-```
-
-After editing `backend/.env`, restart app and workers:
-
-```powershell
-docker compose restart app
-```
-
-## 6) Refresh Knowledge Base and Chunk Index
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\refresh_knowledge_base.ps1
-```
-
-This seeds/crawls raw corpus, chunks documents, embeds chunks, and upserts into Qdrant.
-
-## 7) Verify Service Health
-
-```powershell
-curl http://127.0.0.1:8080/api/v1/health
-curl http://127.0.0.1:5001/health
-curl http://127.0.0.1:5002/health
-curl http://127.0.0.1:5003/health
-curl http://127.0.0.1:8080/api/v1/knowledge-base/status
-```
-
-All should return `200` and JSON with `status: ok` (or `knowledge_base.status: fresh`).
-
-## 8) Full E2E Test (Automated)
-
-```powershell
-E:/Python310/python.exe .\scripts\hackathon_readiness_check.py --base-url http://127.0.0.1:8080/api/v1 --output .\scripts\hackathon_readiness_report.json --max-wait 35
-E:/Python310/python.exe .\scripts\demo_run_3min.py --base-url http://127.0.0.1:8080/api/v1 --input .\scripts\benchmark_demo_3min.json --output .\scripts\demo_3min_report.json --max-wait 35 --poll-interval 1.5
-```
-
-Open reports:
-
-```powershell
-Get-Content .\scripts\hackathon_readiness_report.json
-Get-Content .\scripts\demo_3min_report.json
-```
-
-## 9) Manual Claim Test (Single Claim)
-
-Submit claim:
-
-```powershell
-$resp = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8080/api/v1/analyze/text" -ContentType "application/json" -Body '{"text":"WHO says COVID-19 vaccines do not contain microchips.","language":"international"}'
-$claimId = $resp.claim_id
-$claimId
-```
-
-Poll status:
-
-```powershell
-do {
-  Start-Sleep -Seconds 2
-  $s = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8080/api/v1/claims/$claimId/status"
-  $s.claim.status
-} while ($s.claim.status -notin @("completed", "failed"))
-```
-
-Get result:
-
-```powershell
-Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8080/api/v1/claims/$claimId/result" | ConvertTo-Json -Depth 8
-```
-
-## 10) Teardown
-
-```powershell
-docker compose down
-```
-
-If you want to remove volumes too:
-
-```powershell
-docker compose down -v
-```
-
-## Common Issues
-
-- `queue worker not running`: claims remain pending/processing forever. Start step 5.
-- `DB auth errors`: `MYSQL_PASSWORD` in root `.env` must match `DB_PASSWORD` in `backend/.env`.
-- `slow first run`: model downloads and initial corpus ingestion can take significant time.
-- `host.docker.internal LLM access`: ensure Ollama is running on host if using local LLM endpoint.
-
-## Minimal API Surface Used By Frontend
-
-- `POST /api/v1/analyze/text`
-- `POST /api/v1/analyze/image`
-- `POST /api/v1/analyze/pdf`
-- `GET /api/v1/claims/{id}/status`
-- `GET /api/v1/claims/{id}/result`
-- `POST /api/v1/claims/{id}/review-request`
-
-## 11) Frontend Run Guide
-
-Current frontend state in this repo:
-
-- Text claim flow is fully connected to backend.
-- URL, image, audio, and video are visible as future roadmap only and are intentionally not connected yet.
-
-Run frontend locally:
-
-```powershell
+# 2. Frontend
 cd frontend
-npm.cmd install
-npm.cmd run dev
+npm install
+npm run dev          # http://localhost:3000
 ```
 
-Open:
+The knowledge base **auto-bootstraps** on first run (the `kb-worker` crawls + chunks when the KB is
+empty) and refreshes nightly. Backend API is served at `http://localhost:8080`.
 
-```text
-http://127.0.0.1:3000
-```
+### Required environment
 
-Optional proxy target override (if backend host differs):
+Secrets live only in gitignored env files (`.env.example` holds placeholders):
 
-```powershell
-$env:NEXT_PUBLIC_API_PROXY_TARGET = "http://127.0.0.1:8080"
-npm.cmd run dev
-```
+- **Root `.env`** — `MYSQL_*`, `JINA_API_KEY`, `GNEWS_API_KEY`
+- **`backend/.env`** — `APP_KEY`, `JWT_SECRET`, DB/Redis/Qdrant config, LLM provider keys
+  (`GROQ_API_KEY`, `OPENROUTER_API_KEY`, `CEREBRAS_API_KEY`, `HUGGINGFACE_API_KEY`), and `ADMIN_*` accounts
 
-## 12) MCP Servers (Model Context Protocol)
+## API (selected)
 
-JachaiX now includes three MCP servers:
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/v1/analyze/text` · `/image` · `/pdf` · `/url` | Submit a claim |
+| `GET` | `/api/v1/claims/{id}/status` · `/result` | Poll status / fetch verdict |
+| `GET` | `/api/v1/public/fact-checks` | Public fact-check hub |
+| `POST` | `/api/v1/auth/register` · `/login` | Authentication |
 
-- `services/mcp-server` (Fact Checker tools)
-- `services/mcp-ops-server` (Ops + monitoring tools)
-- `services/mcp-docs-server` (Docs/publication tools)
+## Team — Musketeers
 
-Start them with Docker Compose:
+| Member | Role |
+|---|---|
+| **Zamila Mohammad** (Leader) | Presentation / Communication Lead · Business Analyst / Data Scientist |
+| **Samanta Islam** | Backend / Database / Scraper Engineer · UI/UX / Frontend Developer |
+| **Humayra Binte Kazal** | Backend / Database / Scraper Engineer · Team Leader / Project Coordinator |
+| **Asmita Guha Thakurta** | UI/UX / Frontend Developer · Backend / Database / Scraper Engineer |
 
-```powershell
-docker compose up -d --build mcp-server mcp-ops-server mcp-docs-server
-```
+---
 
-Detailed tool inventory and integration notes:
-
-- `docs/mcp-servers.md`
+<div align="center">
+<sub>JachaiX — making evidence-based truth as fast to access as the misinformation it answers.</sub>
+</div>

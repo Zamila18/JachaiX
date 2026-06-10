@@ -6,80 +6,118 @@ import { useLanguage } from "@/lib/i18n";
 import type { DocsLiveData, DocsPageData, DocsPitchSection, DocsVisibility } from "@/lib/types";
 
 const DEFAULT_PROVENANCE_DATA_SOURCES = [
-  "Public fact-check and news corpus collected from trusted outlets and fact-checking publishers (Bangla and English), including structured claim/article text in the local corpus.",
-  "Scraped and normalized datasets under corpus/raw, then chunked and indexed for retrieval.",
-  "Project-generated verification artifacts: extracted OCR text, retrieved evidence snippets, claim metadata, and decision traces.",
-  "Operational data from the internal pipeline (claim submissions, status/results, audit records) stored in backend services.",
-  "Vector knowledge base built from curated documents and evidence chunks, stored in Qdrant for semantic retrieval.",
+  "Curated Bangla + English fact-check and news corpus, crawled nightly from 25+ trusted outlets and fact-checkers — Reuters, AP, BBC, UN, WHO, The Daily Star, bdnews24, Prothom Alo, Rumor Scanner, AltNews, BOOM, FullFact, PolitiFact — and stored as normalized articles under corpus/raw.",
+  "A hybrid knowledge base: evidence chunks embedded with Jina v3 (1024-dim) into a Qdrant vector index, mirrored into a MySQL BM25 full-text store for combined semantic + keyword retrieval.",
+  "Live Auto-RAG web fallback (Google News + Wikipedia) that resolves real publisher URLs, fetches full article bodies, and writes high-value evidence back into the knowledge base.",
+  "Project-generated verification artifacts: OCR text, retrieved evidence snippets, reranker scores, claim metadata, and complete decision traces.",
+  "Operational data — claim submissions, processing status, verdicts, audit logs, and the publication workflow — stored in MySQL for full traceability.",
 ];
 
 const DEFAULT_PROVENANCE_AI_MODELS = [
-  "LLM-based claim analysis and verdict generation via an OpenAI-compatible endpoint (configurable models; lightweight local models used for fast demo runs).",
-  "Retrieval-Augmented Generation pipeline: embedder service + Qdrant vector search + reranker service for evidence selection.",
-  "OCR model/service for image and PDF text extraction before verification.",
-  "Rule-assisted calibration layer in backend job logic to combine model output with evidence relevance and canonical fact checks.",
-  "Multilingual handling for Bangla + English claim processing and retrieval.",
+  "Multi-provider LLM verdict consensus pool — Groq (Llama-3.3-70B), OpenRouter (Qwen-2.5-72B / Gemma), Cerebras, and Hugging Face — combined with confidence-tiered agreement so no single model decides a verdict.",
+  "Hybrid Retrieval-Augmented Generation: Jina v3 embeddings → Qdrant dense search fused with MySQL BM25, then re-ranked by a BGE cross-encoder tuned for Bangla + English.",
+  "Query-understanding layer: claim normalization, HyDE hypothetical-document expansion, multi-perspective query rewriting, and Banglish paraphrasing to lift recall on low-resource Bangla.",
+  "EasyOCR-based image and PDF text extraction, with optional image-forensics for manipulation/AI-generation detection.",
+  "Self-learning knowledge base: validated web evidence is written back and re-weighted nightly for freshness and source health.",
 ];
 
 const DEFAULT_PROVENANCE_RESPONSIBLE_AI = [
-  "Evidence-first design: verdicts are grounded on retrieved sources, not free-form generation alone.",
-  "Conservative fallback: when evidence is weak or mixed, the system returns unverified instead of forcing a confident answer.",
-  "Human-in-the-loop path: uncertain/low-confidence outcomes are flagged for manual review.",
-  "Transparency: each result includes explanation, confidence score, and source references when available.",
-  "Safety controls: canonical fact shortcuts and contradiction checks reduce obvious model hallucinations.",
-  "Auditability: claim lifecycle, processing status, and result metadata are logged for traceability and debugging.",
-  "Localization-aware approach: supports Bangla and English to reduce language bias in verification workflow.",
+  "Evidence-first verdicting: every verdict is grounded in retrieved, citable sources — never free-form generation alone.",
+  "Consensus over single-model bias: multiple independent LLMs must agree before a high-confidence verdict is issued.",
+  "Conservative uncertainty handling: when evidence is weak, mixed, or contradictory, the system returns 'Unverified' instead of forcing a confident answer.",
+  "Human-in-the-loop: low-confidence or disputed claims are escalated to a manual review queue.",
+  "Transparency: each result ships with a plain-language explanation, a confidence score, a trust label, and clickable source links.",
+  "Safety controls: canonical-fact shortcuts and contradiction checks (e.g. actor/place/number mismatches) reduce obvious hallucinations.",
+  "Auditability: the full claim lifecycle — submission, status, evidence, verdict — is logged for traceability and debugging.",
+  "Localization-aware: first-class Bangla + English handling to reduce the language bias of English-only tools.",
 ];
 
 const DEFAULT_FALLBACK_PITCH_SECTIONS: DocsPitchSection[] = [
   {
-    id: "problem",
-    title: "Problem",
+    id: "why-now",
+    title: "Why Now",
     content:
-      "Misinformation spreads quickly across text, screenshots, and reposted media while verification remains slow.",
+      "AI-generated misinformation — deepfakes, fabricated screenshots, and out-of-context media — is exploding faster than newsrooms can debunk it. The problem is acute in Bangla and other low-resource languages, where almost every automated fact-checking tool is English-only. Manual verification simply cannot keep pace, and election cycles, health scares, and viral rumors make the cost of a slow correction enormous. JachaiX exists to make evidence-based truth as fast to access as the lie it answers.",
   },
   {
     id: "solution",
     title: "Solution",
     content:
-      "JachaiX provides OCR + retrieval + explainable verdicting with source links and reviewer escalation.",
+      "JachaiX is an evidence-first, bilingual (Bangla + English) misinformation verification engine. A user submits a claim as text, an image/screenshot, a PDF, or a URL; the system runs OCR, normalizes the claim, retrieves evidence through a hybrid of dense vector search (Qdrant) and BM25 keyword search, re-ranks it with a cross-encoder, and asks a pool of LLMs for a consensus verdict. The output is a clear verdict — True / False / Misleading / Unverified — with a confidence score, a trust label, a plain-language explanation, and clickable sources. Weak or disputed cases are escalated to human review.",
   },
   {
     id: "demo",
     title: "Product Demo",
     content:
-      "Submit text/image/PDF claims and get evidence-backed verdicts with confidence and sources.",
+      "Paste a claim or upload a screenshot/PDF and get an evidence-backed verdict in roughly 10–60 seconds — complete with confidence, explanation, and source links. Browse already-verified claims on the public Fact-Check Hub, filter by Bangladesh vs. international scope and verdict, and request human review on any result. Logged-in users get a dashboard with their claim history, bookmarks, saved searches, and notifications.",
+  },
+  {
+    id: "market",
+    title: "Market Opportunity",
+    content:
+      "Over 200 million Bangla speakers are served by almost no automated verification tooling. Primary buyers are newsrooms, election commissions, fact-checking organizations, civic-tech NGOs, and platform trust-and-safety teams across Bangladesh and South Asia — a market that English-first incumbents structurally underserve. As an API and MCP service, JachaiX also addresses the fast-growing need for AI agents and chatbots to fact-check their own outputs.",
+  },
+  {
+    id: "business",
+    title: "Business Model",
+    content:
+      "B2B SaaS: tiered subscriptions (per-seat for analysts + per-verification API quotas), enterprise and on-premise deployments for media houses and government partners with data-residency needs, and a developer API / MCP server billed per call. A free public tier drives awareness and a top-of-funnel for paid integrations.",
+  },
+  {
+    id: "traction",
+    title: "Traction",
+    content:
+      "A fully working end-to-end pipeline is live: text/image/PDF/URL verification, a self-refreshing knowledge base (nightly crawl of trusted outlets at 3 AM), a public fact-check hub, an admin publishing queue, and a multi-provider LLM consensus engine already running in production. Auth, user dashboards, activity logging, bookmarks, notifications, and an MCP server for external AI clients are all implemented.",
+  },
+  {
+    id: "competition",
+    title: "Competition",
+    content:
+      "Most existing tools are English-only, manual, or rely on a single model that is easy to bias or hallucinate. Generic LLM chatbots will confidently answer without citing evidence. JachaiX is differentiated by combining Bangla-first OCR, hybrid (dense + BM25) retrieval with reranking, multi-LLM consensus, a self-learning knowledge base, and transparent source-linked verdicts in one auditable pipeline.",
   },
   {
     id: "advantage",
     title: "Unique Advantage",
-    content: "Bangla-first design with extensible architecture for international scale.",
+    content:
+      "Bangla-first by design; hybrid retrieval (semantic + keyword) with cross-encoder reranking for precision; a multi-provider verdict pool that votes for consensus instead of trusting one model; an auto-learning knowledge base that writes back fresh web evidence nightly; and an MCP server so external AI agents can call JachaiX as a verification tool. The architecture is modular and language-extensible for international scale.",
+  },
+  {
+    id: "gtm",
+    title: "Go-To-Market",
+    content:
+      "Pilot with Bangladeshi media and civic partners during high-stakes windows (elections, public-health events) where verification speed matters most. Ship a developer API and an MCP integration so platforms and AI products can embed fact-checking directly. Expand from Bangla to other underserved languages on the same modular pipeline.",
+  },
+  {
+    id: "vision",
+    title: "Vision",
+    content:
+      "Become the trusted, real-time verification layer for multilingual digital ecosystems — an open, evidence-grounded standard that newsrooms, platforms, and AI agents can all rely on to tell truth from manipulation, starting with Bangla and scaling to the world's underserved languages.",
   },
 ];
 
 const DEFAULT_PROJECT_TEAM_MEMBERS = [
   {
-    name: "BD Zamila Mohammad",
-    role: "Leader - Presentation / Communication Lead, Business Analyst / Data Scientist",
-    email: "zamila@jachaix.team",
+    name: "Zamila Mohammad",
+    role: "Leader · Presentation / Communication Lead · Business Analyst / Data Scientist",
+    email: "zamila.cse.20230104071@aust.edu",
     image_url: null,
   },
   {
-    name: "BD Samanta Islam",
-    role: "Member - Backend / Database / Scraper Engineer, UI/UX / Frontend Developer",
-    email: "samanta@jachaix.team",
+    name: "Samanta Islam",
+    role: "Member · Backend / Database / Scraper Engineer · UI/UX / Frontend Developer",
+    email: "samsamanta357@gmail.com",
     image_url: null,
   },
   {
-    name: "BD Humayra Binte Kazal",
-    role: "Member - Backend / Database / Scraper Engineer, Team Leader / Project Coordinator",
-    email: "humayra@jachaix.team",
+    name: "Humayra Binte Kazal",
+    role: "Member · Backend / Database / Scraper Engineer · Team Leader / Project Coordinator",
+    email: "humayrabintekazal@gmail.com",
     image_url: null,
   },
   {
-    name: "BD Asmita Guha Thakurta",
-    role: "Member - UI/UX / Frontend Developer, Backend / Database / Scraper Engineer",
-    email: "asmita@jachaix.team",
+    name: "Asmita Guha Thakurta",
+    role: "Member · UI/UX / Frontend Developer · Backend / Database / Scraper Engineer",
+    email: "asmitaesha123@gmail.com",
     image_url: null,
   },
 ];
@@ -107,11 +145,11 @@ const DEFAULT_FALLBACK_APIS = [
 
 function buildFallbackDocsPageData(): DocsPageData {
   return {
-    team_name: "JachaiX Core Team",
+    team_name: "Musketeers",
     pitch_sections: DEFAULT_FALLBACK_PITCH_SECTIONS,
     technical_sections: {
-      architecture_diagram: "flowchart LR\\nUI[Next.js UI] --> API[Laravel API]\\nAPI --> Q[Queue Worker]\\nQ --> OCR[OCR Service]\\nQ --> EMB[Embedder Service]\\nQ --> RERANK[Reranker Service]\\nQ --> DB[(MySQL)]\\nEMB --> VDB[(Vector Index)]",
-      data_flow_diagram: "flowchart LR\\nIN[Input] --> NORM[Normalization/OCR]\\nNORM --> RET[Retrieval]\\nRET --> RERANK[Rerank]\\nRERANK --> LLM[Verdict Generation]\\nLLM --> OUT[Result + Sources]\\nOUT --> FB[Human Review Feedback]",
+      architecture_diagram: "flowchart TB\\n  UI[\"Next.js Frontend (Vercel)\"] --> NGINX[\"Nginx Gateway\"]\\n  NGINX --> API[\"Laravel API  /api/v1\"]\\n  API --> REDIS[(\"Redis Queue\")]\\n  REDIS --> WORKER[\"Queue Worker — ProcessAnalysisJob\"]\\n  SCHED[\"Scheduler — nightly 3AM Dhaka\"] --> CRAWL[\"KB Crawler + Chunker\"]\\n  subgraph AISVC[AI Microservices]\\n    OCR[\"OCR — EasyOCR\"]\\n    EMB[\"Embedder — Jina v3 (1024d)\"]\\n    RERANK[\"Reranker — BGE cross-encoder\"]\\n  end\\n  subgraph STORE[Data Stores]\\n    MYSQL[(\"MySQL — Claims + BM25\")]\\n    QDRANT[(\"Qdrant — Vector KB\")]\\n  end\\n  subgraph POOL[LLM Verdict Pool — consensus]\\n    LLM[\"Groq | OpenRouter | Cerebras | HuggingFace\"]\\n  end\\n  WORKER --> OCR\\n  WORKER --> EMB --> QDRANT\\n  WORKER --> RERANK\\n  WORKER --> MYSQL\\n  WORKER --> LLM\\n  WORKER --> WEB[\"Auto-RAG — GNews + Wikipedia\"]\\n  CRAWL --> QDRANT\\n  CRAWL --> MYSQL",
+      data_flow_diagram: "flowchart TB\\n  IN[\"Claim — text / image / PDF / URL\"] --> NORM[\"OCR + Language Detect + Claim Normalization\"]\\n  NORM --> QEXP[\"Query Expansion — HyDE + multi-perspective + Banglish\"]\\n  QEXP --> RET[\"Hybrid Retrieval — Qdrant dense + MySQL BM25\"]\\n  RET --> RERANK[\"Cross-encoder Rerank (top evidence)\"]\\n  RERANK --> GAP{\"Enough evidence?\"}\\n  GAP -->|no| WEB[\"Auto-RAG — GNews + Wikipedia\"]\\n  WEB --> RERANK\\n  GAP -->|yes| POOL[\"Multi-LLM Verdict Pool + Consensus\"]\\n  POOL --> TRUST[\"Trust Scoring + Confidence + Label\"]\\n  TRUST --> OUT[\"Verdict + Explanation + Sources\"]\\n  OUT --> REVIEW{\"Low confidence?\"}\\n  REVIEW -->|yes| HUMAN[\"Human Review Queue\"]\\n  REVIEW -->|no| PUB[\"Public Fact-Check Hub\"]",
       provenance_data_sources: DEFAULT_PROVENANCE_DATA_SOURCES,
       provenance_ai_models: DEFAULT_PROVENANCE_AI_MODELS,
       provenance_responsible_ai: DEFAULT_PROVENANCE_RESPONSIBLE_AI,
@@ -743,9 +781,9 @@ export function DocsPageView() {
                     )}
                     <h3 style={{ margin: "0 0 0.35rem", fontSize: "0.95rem", fontWeight: 700, color: S.dark }}>{member.name}</h3>
                     <p style={{ margin: "0 0 0.85rem", fontSize: "0.78rem", color: S.muted, lineHeight: 1.5 }}>{member.role}</p>
-                    <a href={`mailto:${member.email}`} style={{ fontSize: "0.8rem", color: S.green, textDecoration: "none", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                      {member.email}
+                    <a href={`mailto:${member.email}`} title={member.email} style={{ fontSize: "0.76rem", color: S.green, textDecoration: "none", fontWeight: 600, display: "flex", alignItems: "flex-start", justifyContent: "center", gap: "0.35rem", maxWidth: "100%" }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: "0.2rem" }}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                      <span style={{ wordBreak: "break-all", lineHeight: 1.4, minWidth: 0 }}>{member.email}</span>
                     </a>
                   </div>
                 ))}
