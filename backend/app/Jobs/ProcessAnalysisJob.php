@@ -262,6 +262,29 @@ class ProcessAnalysisJob implements ShouldQueue
             $webAugmented
         );
 
+        // ── Defensive normalisation ───────────────────────────────────
+        // Some LLM providers occasionally return "explanation"/"direct_answer"
+        // (or even "verdict") as an ARRAY instead of a string. Those values flow
+        // straight into string DB columns below, which throws "Array to string
+        // conversion" and fails the whole claim. Flatten them to strings here so
+        // every downstream use (save, audit log, notification) is safe.
+        $flattenToString = static function ($value) use (&$flattenToString): string {
+            if (is_array($value)) {
+                return trim(implode(' ', array_map($flattenToString, $value)));
+            }
+            return is_scalar($value) ? (string) $value : '';
+        };
+        if (array_key_exists('explanation', $result)) {
+            $result['explanation'] = $flattenToString($result['explanation']);
+        }
+        if (array_key_exists('direct_answer', $result) && $result['direct_answer'] !== null) {
+            $result['direct_answer'] = $flattenToString($result['direct_answer']) ?: null;
+        }
+        if (isset($result['verdict']) && is_array($result['verdict'])) {
+            $v = strtolower($flattenToString($result['verdict']));
+            $result['verdict'] = in_array($v, ['true', 'false', 'misleading', 'unverified'], true) ? $v : 'unverified';
+        }
+
         // ── STEP 5.5: Compute weighted trust score ────────────────────
         $trustScore = $this->computeTrustScore($result, $reranked, $this->claim);
 
