@@ -92,9 +92,66 @@ export async function submitTextClaim(text: string, language: string) {
   return parseJson<{ claim_id?: number; job?: { id?: number } }>(response);
 }
 
+// Load a File into an <img> element (fallback when createImageBitmap is unavailable).
+function loadImageElement(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+    img.src = url;
+  });
+}
+
+// Downscale large images in-browser before upload. This keeps the request body
+// small (under the server's upload/body limits) and makes OCR noticeably faster.
+// On ANY error it returns the original file untouched, so uploads never break.
+async function downscaleImage(file: File, maxEdge = 1600, quality = 0.85): Promise<File> {
+  if (typeof window === "undefined" || !file.type.startsWith("image/")) return file;
+  try {
+    let width = 0, height = 0;
+    let source: CanvasImageSource;
+    const bitmap = await createImageBitmap(file).catch(() => null);
+    if (bitmap) {
+      width = bitmap.width; height = bitmap.height; source = bitmap;
+    } else {
+      const img = await loadImageElement(file);
+      width = img.naturalWidth; height = img.naturalHeight; source = img;
+    }
+    if (!width || !height) return file;
+
+    const scale = Math.min(1, maxEdge / Math.max(width, height));
+    // Already small in both dimensions and bytes → no need to re-encode.
+    if (scale === 1 && file.size < 900 * 1024) return file;
+
+    const w = Math.round(width * scale);
+    const h = Math.round(height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.fillStyle = "#ffffff";          // flatten transparency (screenshots) to white
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(source, 0, 0, w, h);
+
+    const blob: Blob | null = await new Promise((res) => canvas.toBlob(res, "image/jpeg", quality));
+    if (!blob) return file;
+    // Keep whichever is smaller (avoid making an already-tiny file bigger).
+    if (blob.size >= file.size && scale === 1) return file;
+
+    const name = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+    return new File([blob], name, { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
+
 async function submitFileClaim(endpoint: "image" | "pdf", file: File, language: string) {
+  // Images are downscaled client-side; PDFs are sent as-is.
+  const upload = endpoint === "image" ? await downscaleImage(file) : file;
+
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("file", upload);
   formData.append("language", language);
 
   const response = await fetch(`${BASE}/analyze/${endpoint}`, {
