@@ -8,7 +8,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Footer } from "@/components/layout/Footer";
 import { TopNav } from "@/components/layout/TopNav";
 import { UserSidebar } from "@/components/layout/UserSidebar";
-import { LanguageProvider } from "@/lib/i18n";
+import { LanguageProvider, useLanguage } from "@/lib/i18n";
 import { AuthProvider } from "@/lib/auth";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -23,6 +23,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 function AppShellContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { tx } = useLanguage();
 
   // Authenticated user area: top nav + user sidebar + light content.
   const isUserArea = pathname?.startsWith("/user");
@@ -41,7 +42,8 @@ function AppShellContent({ children }: { children: ReactNode }) {
     pathname === "/scan" ||
     pathname === "/facts" ||
     pathname === "/how-it-works" ||
-    pathname === "/docs" ||
+    pathname === "/terms" ||
+    pathname === "/privacy" ||
     pathname?.startsWith("/facts/") ||
     pathname?.startsWith("/results/");
 
@@ -83,7 +85,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
               background: #0b1120;
               color: #94a3b8;
               border-top: 1px solid rgba(255, 255, 255, 0.05);
-              padding: 2rem 2rem 1rem;
+              padding: 2.5rem 2rem 0.6rem;
               font-family: 'Inter', sans-serif;
             }
             .jx-footer-grid {
@@ -91,8 +93,8 @@ function AppShellContent({ children }: { children: ReactNode }) {
               margin: 0 auto;
               display: grid;
               grid-template-columns: 2fr 1fr 1fr 1fr 1.5fr;
-              gap: 2rem;
-              padding-bottom: 2rem;
+              gap: 1rem;
+              padding-bottom: 0.75rem;
               border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             }
             .jx-footer-brand h2 {
@@ -110,12 +112,12 @@ function AppShellContent({ children }: { children: ReactNode }) {
               text-transform: uppercase;
               color: #94a3b8;
               display: block;
-              margin-bottom: 1rem;
+              margin-bottom: 0.5rem;
             }
             .jx-footer-brand p {
               font-size: 0.9rem;
               line-height: 1.6;
-              margin-bottom: 1.5rem;
+              margin-bottom: 0.75rem;
               max-width: 300px;
             }
             .jx-social-icons {
@@ -139,7 +141,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
             .jx-footer-col h4 {
               color: #ffffff;
               font-size: 0.95rem;
-              margin: 0 0 1.5rem;
+              margin: 0 0 0.75rem;
               font-weight: 600;
             }
             .jx-footer-col ul {
@@ -148,7 +150,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
               margin: 0;
               display: flex;
               flex-direction: column;
-              gap: 1rem;
+              gap: 0.55rem;
             }
             .jx-footer-col a {
               color: #94a3b8;
@@ -161,7 +163,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
             .jx-newsletter p {
               font-size: 0.9rem;
               line-height: 1.5;
-              margin: 0 0 1.5rem;
+              margin: 0 0 0.75rem;
             }
             .jx-newsletter-form {
               display: flex;
@@ -193,7 +195,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
 
             .jx-footer-bottom {
               max-width: 1200px;
-              margin: 1.5rem auto 0;
+              margin: 0.75rem auto 0;
               display: flex;
               justify-content: space-between;
               align-items: center;
@@ -236,8 +238,8 @@ function AppShellContent({ children }: { children: ReactNode }) {
           <div className="jx-footer-grid">
             <div className="jx-footer-brand">
               <h2>Jachai<span>X</span></h2>
-              <span className="jx-footer-brand-subtitle">AI VERIFICATION PLATFORM</span>
-              <p>Combining AI, retrieval systems, and human expertise to fight misinformation and build a more truthful world.</p>
+              <span className="jx-footer-brand-subtitle">{tx({ en: "AI VERIFICATION PLATFORM", bn: "এআই যাচাই প্ল্যাটফর্ম" })}</span>
+              <p>{tx({ en: "Combining AI, retrieval systems, and human expertise to fight misinformation and build a more truthful world.", bn: "ভুল তথ্যের বিরুদ্ধে লড়াই করতে এবং আরও সত্যনিষ্ঠ বিশ্ব গড়তে AI, রিট্রিভাল সিস্টেম এবং মানব দক্ষতার সমন্বয়।" })}</p>
               <div className="jx-social-icons">
                 <a href="#" className="jx-social-icon" aria-label="Facebook">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
@@ -255,53 +257,52 @@ function AppShellContent({ children }: { children: ReactNode }) {
             </div>
 
             <div className="jx-footer-col">
-              <h4>Platform</h4>
+              <h4>{tx({ en: "Platform", bn: "প্ল্যাটফর্ম" })}</h4>
               <ul>
-                <li><Link href="/facts">Fact Checks</Link></li>
-                <li><Link href="/scan">Verify Claim</Link></li>
-                <li><Link href="/facts">Evidence Library</Link></li>
-                <li><Link href="/#how">How It Works</Link></li>
+                <li><Link href="/facts">{tx({ en: "Fact Checks", bn: "ফ্যাক্ট চেকস" })}</Link></li>
+                <li><Link href="/scan">{tx({ en: "Verify Claim", bn: "যাচাই করুন" })}</Link></li>
+                <li><Link href="/#how">{tx({ en: "How It Works", bn: "কীভাবে কাজ করে" })}</Link></li>
               </ul>
             </div>
 
             <div className="jx-footer-col">
-              <h4>Company</h4>
+              <h4>{tx({ en: "Company", bn: "কোম্পানি" })}</h4>
               <ul>
-                <li><Link href="/dashboard">About Us</Link></li>
-                <li><Link href="#">Careers</Link></li>
-                <li><Link href="#">Blog</Link></li>
-                <li><Link href="/contact">Contact Us</Link></li>
+                <li><Link href="/how-it-works">{tx({ en: "About Us", bn: "আমাদের সম্পর্কে" })}</Link></li>
+                <li><Link href="#">{tx({ en: "Careers", bn: "ক্যারিয়ার" })}</Link></li>
+                <li><Link href="#">{tx({ en: "Blog", bn: "ব্লগ" })}</Link></li>
+                <li><Link href="/contact">{tx({ en: "Contact Us", bn: "যোগাযোগ" })}</Link></li>
               </ul>
             </div>
 
             <div className="jx-footer-col">
-              <h4>Support</h4>
+              <h4>{tx({ en: "Support", bn: "সহায়তা" })}</h4>
               <ul>
-                <li><Link href="#">Help Center</Link></li>
-                <li><Link href="#">FAQ</Link></li>
-                <li><Link href="#">Report Misinformation</Link></li>
-                <li><Link href="#">Privacy Policy</Link></li>
+                <li><Link href="#">{tx({ en: "Help Center", bn: "হেল্প সেন্টার" })}</Link></li>
+                <li><Link href="#">{tx({ en: "FAQ", bn: "সাধারণ প্রশ্ন" })}</Link></li>
+                <li><Link href="#">{tx({ en: "Report Misinformation", bn: "ভুল তথ্য রিপোর্ট" })}</Link></li>
+                <li><Link href="/privacy">{tx({ en: "Privacy Policy", bn: "গোপনীয়তা নীতি" })}</Link></li>
               </ul>
             </div>
 
             <div className="jx-footer-col jx-newsletter">
-              <h4>Newsletter</h4>
-              <p>Stay updated with our latest fact checks and platform updates.</p>
+              <h4>{tx({ en: "Newsletter", bn: "নিউজলেটার" })}</h4>
+              <p>{tx({ en: "Stay updated with our latest fact checks and platform updates.", bn: "আমাদের সর্বশেষ ফ্যাক্ট চেক ও প্ল্যাটফর্ম আপডেটের সাথে থাকুন।" })}</p>
               <form className="jx-newsletter-form" onSubmit={(e) => e.preventDefault()}>
-                <input type="email" placeholder="Enter your email" className="jx-newsletter-input" required />
-                <button type="submit" className="jx-newsletter-btn">Subscribe</button>
+                <input type="email" placeholder={tx({ en: "Enter your email", bn: "ইমেইল দিন" })} className="jx-newsletter-input" required />
+                <button type="submit" className="jx-newsletter-btn">{tx({ en: "Subscribe", bn: "সাবস্ক্রাইব" })}</button>
               </form>
             </div>
           </div>
 
           <div className="jx-footer-bottom">
-            <div>© 2026 JachaiX. All rights reserved.</div>
+            <div>{tx({ en: "© 2026 JachaiX. All rights reserved.", bn: "© ২০২৬ JachaiX। সর্বস্বত্ব সংরক্ষিত।" })}</div>
             <div className="jx-footer-links">
-              <Link href="#">Terms of Service</Link>
+              <Link href="/terms">{tx({ en: "Terms of Service", bn: "সেবার শর্তাবলি" })}</Link>
               <span>|</span>
-              <Link href="#">Privacy Policy</Link>
+              <Link href="/privacy">{tx({ en: "Privacy Policy", bn: "গোপনীয়তা নীতি" })}</Link>
               <span>|</span>
-              <span>Made with <span className="jx-heart">❤️</span> in Bangladesh</span>
+              <span>{tx({ en: "Made with", bn: "তৈরি করেছি" })} <span className="jx-heart">❤️</span> {tx({ en: "in Bangladesh", bn: "বাংলাদেশে" })}</span>
             </div>
           </div>
         </footer>
