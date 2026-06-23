@@ -446,7 +446,7 @@ export function HowItWorksPage() {
                 lineHeight: 1.1, letterSpacing: "-0.025em",
                 margin: "0 0 20px", color: "#ffffff",
               }}>
-                {tx({ en: <>How Jachai<span style={{ color: "#22c55e" }}>X</span></>, bn: <>Jachai<span style={{ color: "#22c55e" }}>X</span> কীভাবে</> })}<br />
+                {tx({ en: "How Jachai", bn: "Jachai" })}<span style={{ color: "#22c55e" }}>X</span>{tx({ en: "", bn: " কীভাবে" })}<br />
                 <span style={{ color: "#22c55e" }}>{tx({ en: "Verifies Information", bn: "তথ্য যাচাই করে" })}</span>
               </h1>
               <p style={{
