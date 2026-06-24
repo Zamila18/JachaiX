@@ -671,6 +671,13 @@ class ProcessAnalysisJob implements ShouldQueue
         }
         $results = array_merge($results, $news);
 
+        // ── SerpAPI (Google) — best coverage for Bangla sources + OLD news ──
+        // The search index is permanent, so this retrieves months-old articles
+        // (e.g. Prothom Alo, Daily Star) that recent-only RSS/GNews feeds miss.
+        // Inert unless SERPAPI_API_KEY is configured.
+        $serp = $this->searchSerpApi($query, $lang, $max);
+        $results = array_merge($results, $serp);
+
         Log::info('[WebFallback]', [
             'claim_id' => $this->claim->id,
             'lang'     => $lang,
@@ -678,6 +685,7 @@ class ProcessAnalysisJob implements ShouldQueue
             'bd_news'  => count($bdNews),
             'intl_news'=> count($intlNews),
             'news'     => count($news),
+            'serp'     => count($serp),
             'total'    => count($results),
         ]);
 
@@ -750,6 +758,72 @@ class ProcessAnalysisJob implements ShouldQueue
         } catch (\Exception $e) {
             return [];
         }
+    }
+
+    // ── SerpAPI (Google) search — permanent index → recent AND old articles,
+    // strong Bangla coverage (Prothom Alo, Daily Star). Returns [] if no key
+    // is configured or on any error, so it never breaks the pipeline.
+    private function searchSerpApi(string $query, string $lang, int $max): array
+    {
+        $apiKey = (string) config('jachaix.retrieval.web_fallback.serpapi_key', '');
+        if ($apiKey === '') {
+            return [];
+        }
+        try {
+            $resp = Http::timeout((int) config('jachaix.retrieval.web_fallback.timeout', 12))
+                ->get('https://serpapi.com/search.json', [
+                    'engine'  => 'google',
+                    'q'       => $query,
+                    'api_key' => $apiKey,
+                    'num'     => max($max, 5),
+                    'hl'      => ($lang === 'bn') ? 'bn' : 'en',
+                    'gl'      => ($lang === 'bn') ? 'bd' : 'us',
+                ]);
+            if (!$resp->successful()) {
+                return [];
+            }
+            $organic = $resp->json('organic_results', []);
+        } catch (\Exception $e) {
+            return [];
+        }
+
+        $results = [];
+        $count   = 0;
+        foreach ($organic as $item) {
+            if ($count >= $max) break;
+            $url     = (string) ($item['link'] ?? '');
+            $title   = (string) ($item['title'] ?? '');
+            $snippet = (string) ($item['snippet'] ?? '');
+            if (!$url) {
+                continue;
+            }
+
+            $text = $snippet;
+            if (config('jachaix.retrieval.web_fallback.fetch_full', true) && strlen($snippet) < 400) {
+                $fetched = $this->fetchArticleFromUrl($url);
+                if (strlen($fetched) > strlen($snippet)) {
+                    $text = $fetched;
+                }
+            }
+
+            $text = $this->normalizeWebText(mb_substr($text, 0, 1500));
+            if (strlen($text) < 80) {
+                continue;
+            }
+
+            $results[] = [
+                'text'              => $text,
+                'url'               => $url,
+                'title'             => $title,
+                'source'            => (string) parse_url($url, PHP_URL_HOST),
+                'reliability_score' => 0.72,
+                'retrieval_source'  => 'web_live',
+                'score'             => 0.78,
+                'rerank_score'      => 0.78,
+            ];
+            $count++;
+        }
+        return $results;
     }
 
     private function parseGNewsResults(array $articles, int $max): array

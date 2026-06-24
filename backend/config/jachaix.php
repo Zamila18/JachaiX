@@ -154,6 +154,7 @@ return [
         'web_fallback' => [
             'enabled'     => $envBool('WEB_FALLBACK_ENABLED', true),
             'api_key'     => env('GNEWS_API_KEY', ''),
+            'serpapi_key' => env('SERPAPI_API_KEY', ''),
             'max_results' => (int) env('WEB_FALLBACK_MAX_RESULTS', 4),
             'fetch_full'  => $envBool('WEB_FALLBACK_FETCH_FULL', true),
             'timeout'     => 12,
