@@ -328,8 +328,11 @@ export function HomepagePage() {
           </div>
 
           {/* Hero graphic */}
-          <div className="jx-hero-graphic">
-            <img src="/logo.png" alt="Verify claims with JachaiX" />
+          <div className="jx-hero-graphic jx-hero-graphic--stacked">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/Mindsparks 26 Logo.png" alt="Mindsparks" className="jx-hero-img-mindsparks" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/Code front.png" alt="Code Front" className="jx-hero-img-codefront" />
           </div>
         </div>
 

@@ -1142,7 +1142,7 @@ button.secondary {
   color: var(--warn);
   margin-bottom: 0.6rem;
   padding-left: 0.6rem;
-  opacity: 0.85;
+  opacity: 0.8;
 }
 
 .docs-sidebar-link {
@@ -1682,6 +1682,43 @@ button.secondary {
   gap: 1.25rem;
 }
 
+.jx-brand-group {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.jx-aust-logo {
+  height: 75px;
+  margin-top: 4px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.jx-logo-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.jx-logo-mindsparks {
+  height: 36px;
+  width: auto;
+  max-width: 180px;
+  object-fit: contain;
+}
+
+.jx-logo-codefront {
+  height: 28px;
+  width: auto;
+  max-width: 180px;
+  object-fit: contain;
+}
+
 .jx-brand {
   text-decoration: none;
   color: #ffffff;
@@ -1823,6 +1860,35 @@ button.secondary {
   object-fit: contain;
 }
 
+.jx-hero-graphic--stacked {
+  position: relative;
+  overflow: visible;
+}
+
+.jx-hero-img-mindsparks {
+  position: absolute !important;
+  left: -40px !important;
+  top: -40px !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  max-height: 220px !important;
+  object-fit: contain !important;
+  opacity: 0.8;
+}
+
+.jx-hero-img-codefront {
+  position: absolute !important;
+  right: -20px !important;
+  bottom: 10px !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  max-height: 100px !important;
+  object-fit: contain !important;
+  opacity: 0.8;
+}
+
 .jx-hero-graphic svg {
   width: 100%;
   height: 100%;
@@ -1831,6 +1897,50 @@ button.secondary {
 
 @media (max-width: 820px) {
   .jx-hero-graphic { display: none; }
+  .jx-hero-graphic--stacked {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 140px;
+    height: auto;
+    flex-shrink: 0;
+  }
+  .jx-hero-img-mindsparks {
+    position: static !important;
+    max-height: 75px !important;
+    max-width: 140px !important;
+    width: auto !important;
+    height: auto !important;
+    left: auto !important;
+    top: auto !important;
+    opacity: 0.8;
+  }
+  .jx-hero-img-codefront {
+    position: static !important;
+    max-height: 60px !important;
+    max-width: 140px !important;
+    width: auto !important;
+    height: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    opacity: 0.8;
+  }
+}
+
+@media (max-width: 480px) {
+  .jx-hero-graphic--stacked {
+    width: 110px;
+  }
+  .jx-hero-img-mindsparks {
+    max-height: 55px !important;
+    max-width: 110px !important;
+  }
+  .jx-hero-img-codefront {
+    max-height: 45px !important;
+    max-width: 110px !important;
+  }
 }
 
 .jx-hero-copy h1 {
@@ -4653,6 +4763,8 @@ html { scroll-behavior: smooth; }
   .jx-mobile-nav { top: 60px; }
   .jx-brand-name { font-size: 1.2rem; }
   .jx-nav-actions { gap: 0.5rem; }
+  .jx-logo-mindsparks { height: 28px; max-width: 130px; }
+  .jx-logo-codefront { height: 22px; max-width: 130px; }
   /* Hide login/submit in topnav on very small screens — they're in mobile nav */
   .jx-login, .jx-submit { display: none; }
 }
@@ -5664,9 +5776,11 @@ a.jx-login {
   .jx-step:not(:last-child)::after { display: none; }
 }
 @media (max-width: 820px) {
-  .jx-hero-inner   { flex-direction: column; }
+  .jx-hero-inner   { flex-direction: row; align-items: center; gap: 1rem; }
   .jx-hero-graphic { display: none; }
-  .jx-hero-copy    { max-width: 100%; }
+  .jx-hero-graphic--stacked { display: flex; }
+  .jx-hero-copy    { flex: 1; min-width: 0; text-align: left; }
+  .jx-hero-copy h1, .jx-hero-copy p { text-align: left; }
 }
 @media (max-width: 720px) {
   .jx-steps { grid-template-columns: repeat(2, minmax(0,1fr)); }
