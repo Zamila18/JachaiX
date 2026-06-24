@@ -24,6 +24,16 @@ function verdictColor(verdict: string) {
   }
 }
 
+function verdictClass(verdict: string) {
+  switch (verdict) {
+    case "true": return "is-true";
+    case "false": return "is-false";
+    case "misleading": return "is-misleading";
+    case "partially_true": return "is-partial";
+    default: return "is-unverified";
+  }
+}
+
 function HalfCircleGauge({ pct, color }: { pct: number; color: string }) {
   const radius = 12;
   const circ = Math.PI * radius;
@@ -418,7 +428,6 @@ export function FactsHubPage() {
         .jx-hub-card-verdict {
           padding: 0.3rem 0.6rem;
           border-radius: 4px;
-          color: #fff;
         }
         .jx-hub-card-region {
           color: #64748b;
@@ -471,21 +480,30 @@ export function FactsHubPage() {
         }
 
         .jx-trust {
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
-          border-radius: 12px;
-          padding: 2rem;
+          background: #f0fdf4;
+          border: 1px solid #bbf7d0;
+          border-radius: 14px;
+          padding: 1.75rem 2rem;
           display: flex;
-          gap: 2rem;
+          gap: 2.5rem;
           margin-bottom: 3rem;
           align-items: center;
         }
-        .jx-trust-title { flex-shrink: 0; width: 150px; }
-        .jx-trust-title h3 { margin: 0; font-size: 1.4rem; color: #0f172a; }
+        .jx-trust-title { flex-shrink: 0; width: 160px; }
+        .jx-trust-title h3 { margin: 0; font-size: 1.15rem; font-weight: 700; color: #15803d; line-height: 1.35; }
         .jx-trust-grid { display: flex; gap: 2rem; flex: 1; justify-content: space-between; }
-        .jx-trust-item { display: flex; flex-direction: column; gap: 0.5rem; }
-        .jx-trust-item h4 { margin: 0; font-size: 0.95rem; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; }
-        .jx-trust-item p { margin: 0; font-size: 0.8rem; color: #64748b; }
+        .jx-trust-item { display: flex; flex-direction: column; gap: 0.35rem; }
+        .jx-trust-item h4 { margin: 0; font-size: 0.88rem; font-weight: 700; color: #166534; display: flex; align-items: center; gap: 0.5rem; }
+        .jx-trust-item p { margin: 0; font-size: 0.78rem; color: #166534; opacity: 0.75; line-height: 1.5; }
+        @media (max-width: 768px) {
+          .jx-trust { flex-direction: column; gap: 1.5rem; }
+          .jx-trust-title { width: 100%; }
+          .jx-trust-grid { flex-wrap: wrap; gap: 1.25rem; }
+          .jx-trust-item { width: calc(50% - 0.75rem); }
+        }
+        @media (max-width: 480px) {
+          .jx-trust-item { width: 100%; }
+        }
 
         .jx-pagination {
           display: flex;
@@ -652,7 +670,7 @@ export function FactsHubPage() {
               return (
                 <a key={item.id} href={`/facts/${item.slug}`} className="jx-hub-card">
                   <div className="jx-hub-card-top">
-                    <span className="jx-hub-card-verdict" style={{ background: color }}>{verdictLabel(item.verdict ?? "unverified")}</span>
+                    <span className={`jx-verdict ${verdictClass(item.verdict ?? "")}`}>{verdictLabel(item.verdict ?? "unverified")}</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <span className="jx-hub-card-region">{item.coverage_scope.toUpperCase()}</span>
                       {isAuthenticated && (

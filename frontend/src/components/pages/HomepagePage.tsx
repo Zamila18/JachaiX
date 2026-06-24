@@ -242,9 +242,9 @@ export function HomepagePage() {
       label: tx({ en: "Verified Reports", bn: "যাচাইকৃত রিপোর্ট" }),
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
-          <circle cx="12" cy="14" r="2.5" />
-          <path d="M12 11.5V9m0 7v-1.5" strokeWidth="1.5" />
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <polyline points="9 12 11 14 15 10" />
         </svg>
       ),
     },
@@ -336,7 +336,9 @@ export function HomepagePage() {
         <div className="jx-search-outer">
           <div className="jx-search-card">
             <form className="jx-search-row" onSubmit={submitClaim}>
-              <span className="jx-search-icon" aria-hidden>🔍</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }} aria-hidden>
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
               <input
                 type="text"
                 value={query}
@@ -408,10 +410,7 @@ export function HomepagePage() {
                     <h3>{item.title}</h3>
                     <p>{item.summary || tx({ en: "No summary provided.", bn: "কোনো সারসংক্ষেপ দেওয়া হয়নি।" })}</p>
                     <div className="jx-fact-foot">
-                      <div className="jx-fact-meta">
-                        <span className="jx-meta-item">📅 {formatDate(item.published_at) || tx({ en: "Recent", bn: "সাম্প্রতিক" })}</span>
-                        <span className="jx-meta-item">📄 2 {tx({ en: "Sources", bn: "সূত্র" })}</span>
-                      </div>
+                      <span className="jx-fact-date">{formatDate(item.published_at) || tx({ en: "Recent", bn: "সাম্প্রতিক" })}</span>
                       <div className="jx-conf">
                         <ConfidenceGauge score={item.confidence_score} tone={tone} />
                         <small>{tx({ en: "Confidence", bn: "কনফিডেন্স" })}</small>
@@ -441,7 +440,9 @@ export function HomepagePage() {
           <ol className="jx-steps">
             {steps.map((step, idx) => (
               <li key={step.title} className="jx-step">
-                <span className={`jx-step-icon${idx === steps.length - 1 ? " is-final" : ""}`} aria-hidden style={{ display: "flex", alignItems: "center", justifyContent: "center", color: idx === steps.length - 1 ? "#fff" : "#1e3a5f" }}>{step.icon}</span>
+                <span className={`jx-step-icon${idx === steps.length - 1 ? " is-final" : ""}`} aria-hidden>
+                  {step.icon}
+                </span>
                 <div className="jx-step-text">
                   <strong>
                     <span className="jx-step-num">{idx + 1}</span> {step.title}
