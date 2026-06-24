@@ -239,6 +239,29 @@ def build_chunk_id(source: str, url: str, title: str, chunk_index: int, chunk_te
     return str(uuid.uuid5(uuid.NAMESPACE_URL, hashed))
 
 
+def existing_ids(ids: list[str]) -> set[str]:
+    """Return the subset of chunk IDs already present in Qdrant.
+
+    Used for incremental indexing — chunks that already exist are skipped so we
+    never re-embed unchanged content (saves embedding-API tokens). On ANY error
+    this returns an empty set, so the chunker falls back to embedding everything
+    (current behaviour) and can never wrongly skip / lose data.
+    """
+    if not ids:
+        return set()
+    try:
+        r = requests.post(
+            f"{QDRANT_URL}/collections/{COLLECTION}/points",
+            json={"ids": ids, "with_payload": False, "with_vector": False},
+            timeout=10,
+        )
+        if r.status_code != 200:
+            return set()
+        return {str(pt.get("id")) for pt in r.json().get("result", [])}
+    except Exception:
+        return set()
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -261,9 +284,10 @@ def main():
 
     print(f"\nProcessing {len(all_files)} articles...\n")
 
-    total_uploaded = 0
-    total_failed   = 0
-    skipped        = 0
+    total_uploaded   = 0
+    total_failed     = 0
+    skipped          = 0
+    skipped_existing = 0
 
     for file_idx, filepath in enumerate(all_files):
         with open(filepath, encoding="utf-8") as f:
@@ -287,9 +311,22 @@ def main():
             skipped += 1
             continue
 
-        print(f"[{file_idx+1:3d}/{len(all_files)}] {source:20s} | {len(chunks):2d} chunks | {title[:40]}")
+        # Incremental indexing: precompute deterministic IDs and skip chunks
+        # already present in Qdrant, so we never re-embed unchanged content.
+        chunk_ids = [
+            build_chunk_id(source, url, title, c['chunk_index'],
+                           unicodedata.normalize('NFC', c['text']))
+            for c in chunks
+        ]
+        already = existing_ids(chunk_ids)
+        new_count = len(chunks) - len(already)
 
-        for chunk in chunks:
+        print(f"[{file_idx+1:3d}/{len(all_files)}] {source:20s} | {len(chunks):2d} chunks ({new_count} new) | {title[:40]}")
+
+        for chunk, chunk_id in zip(chunks, chunk_ids):
+            if chunk_id in already:
+                skipped_existing += 1
+                continue
             chunk_text  = unicodedata.normalize('NFC', chunk['text'])
             chunk_type  = chunk['chunk_type']
             chunk_index = chunk['chunk_index']
@@ -316,7 +353,6 @@ def main():
                 "freshness_weight":     1.0,
             }
 
-            chunk_id = build_chunk_id(source, url, title, chunk_index, chunk_text)
             ok = upload_to_qdrant(chunk_id, vector, payload)
             if ok:
                 total_uploaded += 1
@@ -334,6 +370,7 @@ def main():
     print(f"Articles processed : {len(all_files) - skipped}")
     print(f"Articles skipped   : {skipped} (content too short)")
     print(f"Chunks uploaded    : {total_uploaded}")
+    print(f"Chunks skipped (already indexed) : {skipped_existing}")
     print(f"Chunks failed      : {total_failed}")
     print(f"MySQL BM25 mirror  : {mysql_written} rows" + ("" if mysql_conn else " (skipped — no DB)"))
 
