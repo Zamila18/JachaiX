@@ -76,6 +76,7 @@ export interface ClaimResult {
   human_verification?: HumanVerification;
   created_at?: string | null;
   is_published?: boolean;
+  review_request?: ReviewRequest | null;
   fact_check?: null | {
     id: number;
     title: string;
@@ -84,6 +85,13 @@ export interface ClaimResult {
     status: "draft" | "review" | "published";
     published_at: string | null;
   };
+}
+
+export interface ReviewRequest {
+  reason: string | null;
+  notes: string | null;
+  reporter_name?: string | null;
+  requested_at?: string | null;
 }
 
 export interface PublicFactCheckListItem {
@@ -122,6 +130,7 @@ export interface PublicFactCheckDetail {
   tags: string[];
   sources: SourceItem[];
   published_at: string | null;
+  review_request?: ReviewRequest | null;
 }
 
 export interface AdminCompletedClaimItem {
@@ -135,6 +144,7 @@ export interface AdminCompletedClaimItem {
   explanation: string | null;
   created_at: string | null;
   is_published: boolean;
+  review_request?: ReviewRequest | null;
   fact_check: null | {
     id: number;
     title: string;

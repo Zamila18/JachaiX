@@ -791,7 +791,7 @@ export function HowItWorksPage() {
                       fontSize: 11, fontWeight: 700, color: "#94a3b8",
                       letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 20,
                     }}>{label}</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
                       {sources.map(s => (
                         <div key={s.name} className="hiw-source-chip">
                           <div className="hiw-source-dot">

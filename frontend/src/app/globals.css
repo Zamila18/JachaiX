@@ -23,6 +23,17 @@ body {
   padding: 0;
 }
 
+/* ── Global responsive safety net ─────────────────────────────────────
+   Prevents sideways page scroll from any stray wide element, keeps media
+   inside its container, and lets data tables scroll horizontally on small
+   screens instead of blowing out the layout. */
+html, body { overflow-x: clip; max-width: 100%; }
+img, video, canvas { max-width: 100%; }
+@media (max-width: 768px) {
+  table { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  pre, code { max-width: 100%; overflow-x: auto; }
+}
+
 body {
   font-family: var(--font-body), sans-serif;
   color: var(--text);
@@ -1846,8 +1857,8 @@ button.secondary {
 
 .jx-hero-graphic {
   flex-shrink: 0;
-  width: 260px;
-  height: 260px;
+  width: 340px;
+  height: 340px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1855,8 +1866,8 @@ button.secondary {
 }
 
 .jx-hero-graphic img {
-  width: 520px;
-  height: 520px;
+  width: 680px;
+  height: 680px;
   object-fit: contain;
 }
 

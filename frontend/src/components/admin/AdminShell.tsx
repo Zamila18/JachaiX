@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 
 const NAV = [
@@ -29,32 +29,60 @@ const NAV = [
   )},
 ];
 
+function useIsMobile(breakpoint = 900) {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint}px)`);
+    const update = () => setMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, [breakpoint]);
+  return mobile;
+}
+
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { adminEmail, logout } = useAuth();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  const isMobile = useIsMobile();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close the mobile drawer whenever the route changes.
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   const handleLogout = () => { logout(); router.push("/login"); };
   const initials = adminEmail ? adminEmail.slice(0, 2).toUpperCase() : "AD";
 
+  // On mobile the sidebar is a full-width off-canvas drawer (labels always shown).
+  const sidebarWidth = isMobile ? 240 : (collapsed ? 64 : 220);
+  const showLabels = isMobile ? true : !collapsed;
+
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f1f5f9", fontFamily: "'Inter', sans-serif" }}>
+      {/* Mobile drawer backdrop */}
+      {isMobile && mobileOpen && (
+        <div onClick={() => setMobileOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 39 }} />
+      )}
+
       {/* Sidebar */}
       <aside style={{
-        width: collapsed ? 64 : 220,
+        width: sidebarWidth,
         background: "#0f172a",
         display: "flex",
         flexDirection: "column",
         flexShrink: 0,
-        transition: "width 0.2s",
+        transition: "width 0.2s, transform 0.2s",
         position: "fixed",
         top: 0, left: 0, bottom: 0,
         zIndex: 40,
+        transform: isMobile && !mobileOpen ? "translateX(-100%)" : "translateX(0)",
+        boxShadow: isMobile && mobileOpen ? "0 0 40px rgba(0,0,0,0.4)" : "none",
       }}>
         {/* Brand */}
-        <div style={{ padding: collapsed ? "20px 0" : "20px 20px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          {!collapsed && (
+        <div style={{ padding: showLabels ? "20px 20px" : "20px 0", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          {showLabels && (
             <div>
               <div style={{ color: "#fff", fontWeight: 800, fontSize: 18, letterSpacing: -0.5 }}>
                 Jachai<span style={{ color: "#22c55e" }}>X</span>
@@ -62,8 +90,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <div style={{ color: "#64748b", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase" }}>AI Verification Platform</div>
             </div>
           )}
-          <button onClick={() => setCollapsed(c => !c)} style={{ marginLeft: "auto", background: "none", border: "none", color: "#64748b", cursor: "pointer", padding: 4 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          <button onClick={() => isMobile ? setMobileOpen(false) : setCollapsed(c => !c)} aria-label={isMobile ? "Close menu" : "Toggle sidebar"} style={{ marginLeft: "auto", background: "none", border: "none", color: "#64748b", cursor: "pointer", padding: 4 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              {isMobile
+                ? <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>
+                : <><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></>}
+            </svg>
           </button>
         </div>
 
@@ -74,8 +106,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
             return (
               <Link key={item.href} href={item.href} style={{
                 display: "flex", alignItems: "center", gap: 12,
-                padding: collapsed ? "10px 0" : "10px 16px",
-                justifyContent: collapsed ? "center" : "flex-start",
+                padding: showLabels ? "10px 16px" : "10px 0",
+                justifyContent: showLabels ? "flex-start" : "center",
                 color: active ? "#fff" : "#94a3b8",
                 background: active ? "rgba(34,197,94,0.12)" : "transparent",
                 borderLeft: active ? "3px solid #22c55e" : "3px solid transparent",
@@ -84,15 +116,15 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 whiteSpace: "nowrap", overflow: "hidden",
               }}>
                 <span style={{ flexShrink: 0, color: active ? "#22c55e" : "inherit" }}>{item.icon}</span>
-                {!collapsed && item.label}
+                {showLabels && item.label}
               </Link>
             );
           })}
         </nav>
 
         {/* User */}
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", padding: collapsed ? "12px 0" : "12px 16px" }}>
-          {!collapsed && (
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", padding: showLabels ? "12px 16px" : "12px 0" }}>
+          {showLabels && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
               <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#22c55e", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{initials}</div>
               <div style={{ overflow: "hidden" }}>
@@ -103,34 +135,43 @@ export function AdminShell({ children }: { children: ReactNode }) {
           )}
           <button onClick={handleLogout} style={{
             width: "100%", background: "rgba(239,68,68,0.1)", border: "none",
-            color: "#ef4444", padding: collapsed ? "8px 0" : "8px 12px",
+            color: "#ef4444", padding: showLabels ? "8px 12px" : "8px 0",
             borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 500,
-            display: "flex", alignItems: "center", gap: 6, justifyContent: collapsed ? "center" : "flex-start",
+            display: "flex", alignItems: "center", gap: 6, justifyContent: showLabels ? "flex-start" : "center",
           }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            {!collapsed && "Logout"}
+            {showLabels && "Logout"}
           </button>
         </div>
       </aside>
 
       {/* Main */}
-      <div style={{ marginLeft: collapsed ? 64 : 220, flex: 1, display: "flex", flexDirection: "column", minWidth: 0, transition: "margin-left 0.2s" }}>
+      <div style={{ marginLeft: isMobile ? 0 : (collapsed ? 64 : 220), flex: 1, display: "flex", flexDirection: "column", minWidth: 0, transition: "margin-left 0.2s" }}>
         {/* Topbar */}
-        <header style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "0 24px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 30 }}>
-          <div style={{ fontSize: 14, color: "#64748b" }}>
-            {NAV.find(n => pathname === n.href || pathname?.startsWith(n.href + "/"))?.label ?? "Admin"}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#22c55e", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 12 }}>{initials}</div>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Admin User</div>
-              <div style={{ fontSize: 11, color: "#64748b" }}>Administrator</div>
+        <header style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "0 16px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 30 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+            {isMobile && (
+              <button onClick={() => setMobileOpen(true)} aria-label="Open menu" style={{ background: "none", border: "none", color: "#0f172a", cursor: "pointer", padding: 4, display: "flex", flexShrink: 0 }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+              </button>
+            )}
+            <div style={{ fontSize: 14, color: "#64748b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {NAV.find(n => pathname === n.href || pathname?.startsWith(n.href + "/"))?.label ?? "Admin"}
             </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#22c55e", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 12 }}>{initials}</div>
+            {!isMobile && (
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Admin User</div>
+                <div style={{ fontSize: 11, color: "#64748b" }}>Administrator</div>
+              </div>
+            )}
           </div>
         </header>
 
         {/* Content */}
-        <main style={{ flex: 1, padding: "24px", overflowY: "auto" }}>
+        <main style={{ flex: 1, padding: isMobile ? "16px" : "24px", overflowY: "auto" }}>
           {children}
         </main>
       </div>

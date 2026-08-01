@@ -161,7 +161,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
         <Card title="Claims Overview">
           <ResponsiveContainer width="100%" height={180}>
             <LineChart data={claimsOverview}>

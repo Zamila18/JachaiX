@@ -436,10 +436,26 @@ export function ClaimResultPage({ claimId }: Props) {
             </p>
           </div>
 
+          {result.review_request && (result.review_request.reason || result.review_request.notes) && (
+            <div style={{ background: "#fff", borderRadius: 8, padding: "12px 16px", marginBottom: 12, border: "1px solid #bfdbfe", borderLeft: "3px solid #2563eb" }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#2563eb", marginBottom: 6, letterSpacing: "0.05em" }}>
+                {tx({ en: "YOUR QUESTION", bn: "আপনার প্রশ্ন" })}
+              </p>
+              {result.review_request.reason && (
+                <p style={{ color: "#0f172a", lineHeight: 1.7, margin: 0, fontWeight: result.review_request.notes ? 600 : 400 }}>{result.review_request.reason}</p>
+              )}
+              {result.review_request.notes && (
+                <p style={{ color: "#334155", lineHeight: 1.7, margin: "6px 0 0" }}>{result.review_request.notes}</p>
+              )}
+            </div>
+          )}
+
           {result.fact_check.summary && (
             <div style={{ background: "#fff", borderRadius: 8, padding: "12px 16px", marginBottom: 12, border: "1px solid #bbf7d0" }}>
               <p style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 6, letterSpacing: "0.05em" }}>
-                {tx({ en: "REVIEWER NOTES", bn: "পর্যালোচকের নোট" })}
+                {result.review_request && (result.review_request.reason || result.review_request.notes)
+                  ? tx({ en: "REVIEWER'S REPLY", bn: "পর্যালোচকের উত্তর" })
+                  : tx({ en: "REVIEWER NOTES", bn: "পর্যালোচকের নোট" })}
               </p>
               <p style={{ color: "#0f172a", lineHeight: 1.7, margin: 0 }}>{result.fact_check.summary}</p>
             </div>

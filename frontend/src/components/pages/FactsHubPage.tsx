@@ -495,11 +495,28 @@ export function FactsHubPage() {
         .jx-trust-item { display: flex; flex-direction: column; gap: 0.35rem; }
         .jx-trust-item h4 { margin: 0; font-size: 0.88rem; font-weight: 700; color: #166534; display: flex; align-items: center; gap: 0.5rem; }
         .jx-trust-item p { margin: 0; font-size: 0.78rem; color: #166534; opacity: 0.75; line-height: 1.5; }
+        @media (max-width: 900px) {
+          .jx-hub-hero-inner { flex-direction: column; align-items: stretch; }
+          .jx-hero-shield {
+            position: static !important;
+            transform: none !important;
+            right: auto !important;
+            top: auto !important;
+            width: 150px !important;
+            height: 150px !important;
+            margin: 1.25rem auto 0 !important;
+            display: block !important;
+          }
+        }
         @media (max-width: 768px) {
           .jx-trust { flex-direction: column; gap: 1.5rem; }
           .jx-trust-title { width: 100%; }
           .jx-trust-grid { flex-wrap: wrap; gap: 1.25rem; }
           .jx-trust-item { width: calc(50% - 0.75rem); }
+        }
+        @media (max-width: 560px) {
+          .jx-filter-search { min-width: 100%; }
+          .jx-filter-select, .jx-filter-with-icon, .jx-btn-apply, .jx-btn-savesearch { flex: 1 1 auto; justify-content: center; }
         }
         @media (max-width: 480px) {
           .jx-trust-item { width: 100%; }
@@ -552,7 +569,7 @@ export function FactsHubPage() {
             <p>{tx({ en: "Browse verified fact-check reports, evidence-backed investigations, and misinformation analysis from Bangladesh and around the world.", bn: "বাংলাদেশ এবং বিশ্বজুড়ে যাচাইকৃত ফ্যাক্ট-চেক রিপোর্ট, প্রমাণ-সমর্থিত তদন্ত এবং ভুল তথ্যের বিশ্লেষণ ব্রাউজ করুন।" })}</p>
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/shield.png" alt="JachaiX Shield" style={{ position: "absolute", right: "2%", top: "50%", transform: "translateY(-50%)", width: 320, height: 320, objectFit: "contain", filter: "drop-shadow(0 0 32px rgba(22,163,74,0.3))", pointerEvents: "none" }} />
+          <img src="/shield.png" alt="JachaiX Shield" className="jx-hero-shield" style={{ position: "absolute", right: "2%", top: "50%", transform: "translateY(-50%)", width: 320, height: 320, objectFit: "contain", filter: "drop-shadow(0 0 32px rgba(22,163,74,0.3))", pointerEvents: "none" }} />
         </div>
       </section>
 
@@ -619,7 +636,7 @@ export function FactsHubPage() {
         </div>
 
         {/* STATS */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", margin: "2rem 0", background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 12px rgba(15,23,42,0.07)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", margin: "2rem 0", background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 12px rgba(15,23,42,0.07)" }}>
           {[
             { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>, iconBg: "#e8f5ee", iconBd: "#c8e8d4", val: loading ? "—" : total, label: tx({ en: "Published Fact Checks", bn: "প্রকাশিত ফ্যাক্ট চেক" }) },
             { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>, iconBg: "#fef2f2", iconBd: "#fecaca", val: loading ? "—" : items.filter(i => i.verdict === "false").length, label: tx({ en: "False Claims", bn: "মিথ্যা দাবি" }) },

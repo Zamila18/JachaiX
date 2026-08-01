@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\Claim;
 use App\Models\PublicFactCheck;
 use Illuminate\Http\JsonResponse;
@@ -34,16 +35,28 @@ class PublicFactCheckController extends Controller
         $paginator = $query->paginate($perPage);
         $claims = $paginator->getCollection();
 
+        $claimIds = $claims->pluck('id')->all();
+
         $factChecksByClaim = PublicFactCheck::query()
-            ->whereIn('claim_id', $claims->pluck('id')->all())
+            ->whereIn('claim_id', $claimIds)
             ->get()
             ->keyBy('claim_id');
 
+        // Latest human-review request (the user's question) per claim, if any.
+        $reviewRequestsByClaim = AuditLog::query()
+            ->where('event', 'human_review_requested')
+            ->whereIn('claim_id', $claimIds)
+            ->orderByDesc('id')
+            ->get()
+            ->groupBy('claim_id');
+
         return response()->json([
             'success' => true,
-            'items' => $claims->map(function (Claim $claim) use ($factChecksByClaim) {
+            'items' => $claims->map(function (Claim $claim) use ($factChecksByClaim, $reviewRequestsByClaim) {
                 /** @var PublicFactCheck|null $fact */
                 $fact = $factChecksByClaim->get($claim->id);
+                /** @var AuditLog|null $req */
+                $req = optional($reviewRequestsByClaim->get($claim->id))->first();
 
                 return [
                     'claim_id' => $claim->id,
@@ -56,6 +69,7 @@ class PublicFactCheckController extends Controller
                     'explanation' => $claim->explanation,
                     'created_at' => optional($claim->created_at)?->toIso8601String(),
                     'is_published' => (bool) ($fact && $fact->status === 'published' && $fact->published_at),
+                    'review_request' => $this->reviewRequestPayload($req),
                     'fact_check' => $fact ? [
                         'id' => $fact->id,
                         'title' => $fact->title,
@@ -75,6 +89,45 @@ class PublicFactCheckController extends Controller
                 'last_page' => $paginator->lastPage(),
             ],
         ]);
+    }
+
+    /**
+     * Shape a human-review request AuditLog into the {reason, notes, ...} payload
+     * consumed by the admin queue, the claim result page and the public fact page.
+     */
+    private function reviewRequestPayload(?AuditLog $req): ?array
+    {
+        if (!$req) {
+            return null;
+        }
+
+        $meta = is_array($req->metadata) ? $req->metadata : [];
+        $reason = trim((string) ($meta['reason'] ?? ''));
+        $notes = trim((string) ($meta['notes'] ?? ''));
+
+        if ($reason === '' && $notes === '') {
+            return null;
+        }
+
+        return [
+            'reason' => $reason !== '' ? $reason : null,
+            'notes' => $notes !== '' ? $notes : null,
+            'reporter_name' => ($meta['reporter_name'] ?? null) ?: null,
+            'requested_at' => $meta['requested_at'] ?? optional($req->created_at)?->toIso8601String(),
+        ];
+    }
+
+    private function latestReviewRequest(?int $claimId): ?AuditLog
+    {
+        if (!$claimId) {
+            return null;
+        }
+
+        return AuditLog::query()
+            ->where('event', 'human_review_requested')
+            ->where('claim_id', $claimId)
+            ->orderByDesc('id')
+            ->first();
     }
 
     public function index(Request $request): JsonResponse
@@ -172,6 +225,7 @@ class PublicFactCheckController extends Controller
                 'tags' => $item->tags ?? [],
                 'sources' => $item->sources ?? [],
                 'published_at' => optional($item->published_at)?->toIso8601String(),
+                'review_request' => $this->reviewRequestPayload($this->latestReviewRequest($item->claim_id)),
             ],
         ]);
     }

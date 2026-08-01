@@ -182,7 +182,7 @@ export default function ClaimsPage() {
               {selected.explanation && <div><div style={{ color: "#64748b", fontSize: 11, fontWeight: 600, marginBottom: 4 }}>AI EXPLANATION</div>
                 <div style={{ background: "#f0fdf4", borderRadius: 8, padding: 12, color: "#166534", lineHeight: 1.6 }}>{selected.explanation}</div>
               </div>}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
                 {[["Language", selected.language], ["Confidence", selected.confidence_score != null ? `${Math.round(selected.confidence_score * 100)}%` : "—"], ["Published", selected.is_published ? "Yes" : "No"], ["Submitted", selected.created_at ? new Date(selected.created_at).toLocaleString() : "—"]].map(([k, v]) => (
                   <div key={k}><div style={{ color: "#64748b", fontSize: 11, fontWeight: 600, marginBottom: 2 }}>{k}</div><div style={{ color: "#0f172a", fontWeight: 500 }}>{v ?? "—"}</div></div>
                 ))}

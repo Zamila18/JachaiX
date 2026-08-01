@@ -85,8 +85,6 @@ export function TopNav() {
       <header className="jx-topnav">
         <div className="jx-topnav-inner">
           <div className="jx-brand-group">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/AUST IDC - White (1).png" alt="AUST IDC" className="jx-aust-logo" />
             <Link href="/" className="jx-brand" aria-label={t.landing.brandAria}>
               <span className="jx-brand-name">Jachai<span className="jx-brand-x">X</span></span>
               <small>{t.landing.aiPlatform}</small>

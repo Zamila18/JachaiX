@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Jobs\ProcessAnalysisJob;
 use App\Models\AuditLog;
 use App\Models\Claim;
+use App\Models\PublicFactCheck;
 use App\Services\ActivityLogger;
 use App\Services\JwtService;
 use App\Support\ClaimLanguage;
@@ -238,6 +239,18 @@ class ClaimController extends Controller
         $crossVerification = $this->buildCrossVerificationSuggestions($claim);
         $humanVerification = $this->buildHumanVerificationSection($claim, $crossVerification['links']);
 
+        // The user's human-review request (their question) and the published review, if any.
+        $reviewRequest = $this->latestReviewRequestPayload($claim->id);
+        $fact = PublicFactCheck::query()->where('claim_id', $claim->id)->first();
+        $factPayload = ($fact && $fact->status === 'published' && $fact->published_at) ? [
+            'id'           => $fact->id,
+            'title'        => $fact->title,
+            'slug'         => $fact->slug,
+            'summary'      => $fact->summary,
+            'status'       => $fact->status,
+            'published_at' => optional($fact->published_at)?->toIso8601String(),
+        ] : null;
+
         return response()->json([
             'success' => true,
             'claim'   => [
@@ -256,9 +269,42 @@ class ClaimController extends Controller
                 'normalization'    => $claim->normalization_data,
                 'cross_verification' => $crossVerification,
                 'human_verification' => $humanVerification,
+                'review_request'   => $reviewRequest,
+                'fact_check'       => $factPayload,
                 'created_at'       => $claim->created_at,
             ],
         ]);
+    }
+
+    /**
+     * Latest human-review request for a claim, shaped as {reason, notes, ...}.
+     */
+    private function latestReviewRequestPayload(int $claimId): ?array
+    {
+        $req = AuditLog::query()
+            ->where('event', 'human_review_requested')
+            ->where('claim_id', $claimId)
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$req) {
+            return null;
+        }
+
+        $meta = is_array($req->metadata) ? $req->metadata : [];
+        $reason = trim((string) ($meta['reason'] ?? ''));
+        $notes = trim((string) ($meta['notes'] ?? ''));
+
+        if ($reason === '' && $notes === '') {
+            return null;
+        }
+
+        return [
+            'reason' => $reason !== '' ? $reason : null,
+            'notes' => $notes !== '' ? $notes : null,
+            'reporter_name' => ($meta['reporter_name'] ?? null) ?: null,
+            'requested_at' => $meta['requested_at'] ?? optional($req->created_at)?->toIso8601String(),
+        ];
     }
 
     public function submitReviewRequest(Request $request, int $id): JsonResponse

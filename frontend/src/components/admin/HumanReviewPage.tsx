@@ -160,6 +160,12 @@ export default function HumanReviewPage() {
                       <div style={{ fontWeight: 500, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {(c.claim_text ?? "—").slice(0, 60)}
                       </div>
+                      {c.review_request && (c.review_request.reason || c.review_request.notes) && (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, background: "#eff6ff", color: "#2563eb", padding: "1px 7px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                          User asked
+                        </span>
+                      )}
                     </td>
                     <td style={{ padding: "10px 14px" }}>
                       <span style={{ background: "#f1f5f9", color: "#475569", padding: "2px 7px", borderRadius: 4, fontSize: 11 }}>text</span>
@@ -191,11 +197,25 @@ export default function HumanReviewPage() {
                 <div style={{ color: "#64748b", fontSize: 11, fontWeight: 600, marginBottom: 4 }}>CLAIM CONTENT</div>
                 <div style={{ background: "#f8fafc", borderRadius: 8, padding: 10, color: "#0f172a", lineHeight: 1.6, fontSize: 12, maxHeight: 120, overflowY: "auto" }}>{selected.claim_text ?? "—"}</div>
               </div>
+              {selected.review_request && (selected.review_request.reason || selected.review_request.notes) && (
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#2563eb", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    USER&apos;S REVIEW REQUEST
+                  </div>
+                  <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: 10, color: "#1e3a8a", fontSize: 12, lineHeight: 1.6, maxHeight: 140, overflowY: "auto" }}>
+                    {selected.review_request.reason && (
+                      <div style={{ fontWeight: 600, marginBottom: selected.review_request.notes ? 6 : 0 }}>{selected.review_request.reason}</div>
+                    )}
+                    {selected.review_request.notes && <div>{selected.review_request.notes}</div>}
+                  </div>
+                </div>
+              )}
               <div>
                 <div style={{ color: "#64748b", fontSize: 11, fontWeight: 600, marginBottom: 4 }}>AI REASON FOR FLAGGING</div>
                 <div style={{ background: "#fef9c3", borderRadius: 8, padding: 10, color: "#854d0e", fontSize: 12, lineHeight: 1.5 }}>AI confidence: {selected.confidence_score != null ? `${Math.round(selected.confidence_score * 100)}%` : "—"}. Requires human verification before publishing.</div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, fontSize: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, fontSize: 12 }}>
                 {[["AI Verdict", verdictBadge(selected.verdict)], ["Confidence", `${Math.round((selected.confidence_score ?? 0) * 100)}%`], ["Language", selected.language ?? "—"], ["Published", selected.is_published ? "Yes" : "No"]].map(([k, v]) => (
                   <div key={k as string}><div style={{ color: "#64748b", fontSize: 10, fontWeight: 600, marginBottom: 2 }}>{k}</div><div>{typeof v === "string" ? <span style={{ color: "#0f172a", fontWeight: 500 }}>{v}</span> : v}</div></div>
                 ))}
@@ -206,7 +226,7 @@ export default function HumanReviewPage() {
               </div>}
               <div>
                 <div style={{ color: "#64748b", fontSize: 11, fontWeight: 600, marginBottom: 8 }}>YOUR VERDICT</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 6 }}>
                   {VERDICTS.map(v => (
                     <button key={v} onClick={() => setReviewVerdict(v)} style={{
                       padding: "8px 10px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "2px solid",
@@ -218,8 +238,10 @@ export default function HumanReviewPage() {
                 </div>
               </div>
               <div>
-                <div style={{ color: "#64748b", fontSize: 11, fontWeight: 600, marginBottom: 4 }}>REVIEW NOTES</div>
-                <textarea value={reviewNotes} onChange={e => setReviewNotes(e.target.value)} placeholder="Add notes for this review…" rows={3} style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: 10, fontSize: 12, resize: "vertical", outline: "none", boxSizing: "border-box" }} />
+                <div style={{ color: "#64748b", fontSize: 11, fontWeight: 600, marginBottom: 4 }}>
+                  {selected.review_request ? "YOUR REPLY (published to the user)" : "REVIEW NOTES (published to the user)"}
+                </div>
+                <textarea value={reviewNotes} onChange={e => setReviewNotes(e.target.value)} placeholder={selected.review_request ? "Reply to the user's question…" : "Add notes for this review…"} rows={3} style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: 10, fontSize: 12, resize: "vertical", outline: "none", boxSizing: "border-box" }} />
               </div>
               {submitMsg && <div style={{ background: submitMsg.includes("success") ? "#f0fdf4" : "#fee2e2", color: submitMsg.includes("success") ? "#16a34a" : "#dc2626", padding: 10, borderRadius: 6, fontSize: 12 }}>{submitMsg}</div>}
               <div style={{ display: "flex", gap: 8 }}>

@@ -195,6 +195,31 @@ export function FactsPage({ slug }: { slug: string }) {
               <p style={{ color: '#94a3b8' }}>{tx({ en: "No linked sources.", bn: "কোনো সংযুক্ত সূত্র নেই।" })}</p>
             )}
           </div>
+
+          {item.review_request && (item.review_request.reason || item.review_request.notes) && (
+            <div className="jx-detail-panel">
+              <h2>🛡️ {tx({ en: "Human Review", bn: "মানব পর্যালোচনা" })}</h2>
+              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderLeft: '4px solid #2563eb', borderRadius: 10, padding: '1rem 1.2rem', marginBottom: '1rem' }}>
+                <p style={{ fontSize: '0.8rem', fontWeight: 700, color: '#2563eb', margin: '0 0 0.4rem', letterSpacing: '0.05em' }}>
+                  {tx({ en: "READER'S QUESTION", bn: "পাঠকের প্রশ্ন" })}
+                </p>
+                {item.review_request.reason && (
+                  <p style={{ margin: 0, color: '#0f172a', fontWeight: item.review_request.notes ? 600 : 400, lineHeight: 1.7 }}>{item.review_request.reason}</p>
+                )}
+                {item.review_request.notes && (
+                  <p style={{ margin: '0.4rem 0 0', color: '#334155', lineHeight: 1.7 }}>{item.review_request.notes}</p>
+                )}
+              </div>
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '4px solid #22c55e', borderRadius: 10, padding: '1rem 1.2rem' }}>
+                <p style={{ fontSize: '0.8rem', fontWeight: 700, color: '#16a34a', margin: '0 0 0.4rem', letterSpacing: '0.05em' }}>
+                  {tx({ en: "REVIEWER'S REPLY", bn: "পর্যালোচকের উত্তর" })}
+                </p>
+                <p style={{ margin: 0, color: '#0f172a', lineHeight: 1.7 }}>
+                  {item.summary || tx({ en: "Reviewed by our fact-check team.", bn: "আমাদের ফ্যাক্ট-চেক দল কর্তৃক পর্যালোচিত।" })}
+                </p>
+              </div>
+            </div>
+          )}
         </section>
       </div>
     </main>

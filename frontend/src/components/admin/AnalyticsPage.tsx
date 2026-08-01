@@ -259,7 +259,7 @@ export default function AnalyticsPage() {
       </Card>
 
       {/* Verdict + Language */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
         <Card title="Verdict Distribution">
           <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
             <PieChart width={150} height={150}>
@@ -293,7 +293,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Confidence + Status breakdown */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
         <Card title="Confidence Score Distribution">
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={confBuckets} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
